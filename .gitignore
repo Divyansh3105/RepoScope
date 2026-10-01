@@ -1,0 +1,7 @@
+# Your GitHub token lives here, so it must never be committed.
+config/config.local.php
+
+# Claude Code preview settings (contain a machine-specific PHP path).
+.claude/launch.json
+
+.claude/
