@@ -45,6 +45,7 @@
     --chart-grid: #232831;           /* gridlines stay quiet */
     --chart-axis: #3a414c;           /* baseline */
     --chart-text: #7f8794;           /* tick and axis labels */
+    --chart-lift: rgba(255, 255, 255, 0.22); /* laid over a hovered bar to lighten it */
 
     /* Shape and type */
     --radius: 12px;
@@ -203,3 +204,77 @@ input[type="text"]:focus-visible, select:focus-visible { outline-offset: 0; bord
     background: var(--surface);
 }
 .alert-error { border-left-color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, var(--surface)); }
+
+/* ---- 8. Page header and small text ---------------------------------------- */
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.page-head h1 { margin: 0; font-size: clamp(1.6rem, 1.2rem + 1.5vw, 2.2rem); }
+.page-head p { margin: 4px 0 0; color: var(--text-2); }
+.page-head form { flex: 1 1 320px; max-width: 440px; }
+.muted { color: var(--muted); font-size: 0.875rem; }
+
+/* ---- 9. Profile ------------------------------------------------------------ */
+.profile { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.avatar { width: 88px; height: 88px; border: 1px solid var(--border-strong); border-radius: 50%; }
+.profile-text { flex: 1 1 280px; min-width: 0; }
+.profile h2 { margin: 0; font-size: 1.5rem; }
+.profile-bio { margin: 8px 0 0; color: var(--text-2); }
+.profile-meta {
+    display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 10px 0 0; padding: 0;
+    list-style: none; color: var(--muted); font-size: 0.875rem;
+}
+
+/* Stat tiles: the number on top, its label underneath. */
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.stat { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.stat-value { display: block; font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
+.stat-label { color: var(--muted); font-size: 0.85rem; }
+
+/* ---- 10. Charts (drawn by js/charts.js) ------------------------------------- */
+.chart-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); }
+.chart-wide { grid-column: 1 / -1; }       /* spans the whole row */
+.chart { min-width: 0; margin: 0; }         /* <figure> has default margins; min-width: 0 lets it shrink in the grid */
+.chart h2 { margin: 0 0 12px; font-size: 1rem; }
+.chart-body { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.chart-canvas { position: relative; flex: 1 1 260px; min-width: 0; } /* the tooltip is positioned inside this box */
+.chart-canvas canvas { width: 100%; height: 280px; }  /* the height includes the axis labels */
+
+/* Pie legend, built by charts.js */
+.chart-legend {
+    flex: 1 1 180px; display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0;
+    list-style: none; font-size: 0.875rem;
+}
+.chart-legend li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.swatch { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.legend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-value { margin-left: auto; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+/* Hover tooltip: the value leads, the label follows. */
+.chart-tooltip {
+    position: absolute; z-index: 2;
+    pointer-events: none;                   /* never steals the pointer from the canvas */
+    padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    font-size: 0.8rem; white-space: nowrap;
+}
+.chart-tooltip strong { display: block; font-size: 1rem; }
+.tip-label { display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+.tip-key { width: 12px; height: 3px; border-radius: 2px; } /* a short line in the mark's colour */
+
+.chart-data { margin-top: 12px; }
+.chart-data summary { color: var(--text-2); font-size: 0.875rem; cursor: pointer; }
+.chart-data .table-wrap { margin-top: 8px; }
+
+/* ---- 11. Tables -------------------------------------------------------------- */
+.table-wrap {                                /* long or wide tables scroll inside this box */
+    overflow: auto; max-height: 480px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+th, td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+thead th {                                   /* the header row stays visible while scrolling */
+    position: sticky; top: 0;
+    background: var(--surface-2); color: var(--text-2); font-weight: 600;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.num { text-align: right; font-variant-numeric: tabular-nums; } /* digits line up down the column */

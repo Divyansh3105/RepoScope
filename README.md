@@ -2,21 +2,21 @@
 
 **Turn GitHub profiles and CSV files into statistics and interactive charts, using plain PHP and HTML5 Canvas.**
 
-![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php&logoColor=white)
+![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
 RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks, libraries or a database, to show what core PHP can do on its own.
 
-> **Status: work in progress.** Phase 1 of 5 is done: security foundations, layout, home page and theme. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
+> **Status: work in progress.** Phases 1 and 2 of 5 are done: security foundations, layout and theme, the GitHub client and Profile mode with its charts. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
 
 ## Features
 
-- **Profile mode** *(Phase 2)*: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (bar, top 10) and a repository creation timeline (line).
+- **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (bar, top 10) and a repository creation timeline (line).
 - **Compare mode** *(Phase 4)*: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column). You get a leaderboard (repositories, total stars, followers, number of languages), side-by-side bar charts and a combined language chart for the group. If one user fails, the rest still load, and users already cached cost no API calls.
 - **Analyze mode** *(Phase 3)*: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick columns to draw a bar, line or pie chart.
 - **Export** *(Phase 4)*: download any result table as a CSV file, generated on the fly.
-- **Hand-written canvas charts** *(Phase 2)*: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
+- **Hand-written canvas charts**: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
 
 ## Screenshots
 
@@ -33,7 +33,7 @@ Screenshots are added as each mode is finished.
 
 | Layer | Choice |
 |---|---|
-| Backend | PHP 8.2+: plain functions, `require`, forms and sessions. No framework, no Composer |
+| Backend | PHP 8.5: plain functions, `require`, forms and sessions. No framework, no Composer |
 | Charts | HTML5 Canvas and vanilla JavaScript, no libraries |
 | Styling | Plain CSS: custom properties, Grid and Flexbox |
 | Storage | PHP sessions only. No database, nothing saved to disk |
@@ -106,7 +106,8 @@ GitHub data and CSV uploads both end up in this shape, so one set of statistics 
   - `frame-ancestors 'none'` stops clickjacking.
   - `X-Content-Type-Options: nosniff` stops the browser guessing file types.
   - `Referrer-Policy: same-origin` keeps URLs like `?user=...` from leaking to other sites.
-- **Safe chart data** *(Phase 2)*: chart data is passed as inert JSON. It is encoded with the `JSON_HEX_*` flags so it can never break out of its `<script>` tag.
+- **Safe links:** URLs that come from GitHub, such as avatars and personal websites, are only put into `href` or `src` after checking that they start with `http://` or `https://`. Escaping alone would still allow a `javascript:` link.
+- **Safe chart data:** chart data is passed as inert JSON. It is encoded with the `JSON_HEX_*` flags so it can never break out of its `<script>` tag.
 - **CSRF protection:** every POST form carries a random 64-character token stored in the session and checked with `hash_equals()`. The session cookie is also `SameSite=Lax`.
 - **Session hardening:**
   - The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS. That includes running behind Render's proxy, detected through `X-Forwarded-Proto`.
@@ -117,7 +118,7 @@ GitHub data and CSV uploads both end up in this shape, so one set of statistics 
   - Files are read straight from PHP's temporary upload location and never moved or stored.
   - Parsing stops at 5,000 rows and 50 columns.
 - **CSV formula injection** *(Phase 4)*: exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`. Spreadsheet apps then show them as text instead of running them as formulas.
-- **Session caching** *(Phase 2)*: GitHub responses are cached in the session for 10 minutes, at most 30 entries, keeping only the fields that are needed. This saves API quota without a database or server-side files.
+- **Session caching:** GitHub data is cached in the session for 10 minutes, one entry per user (profile and repositories together), at most 30 entries, keeping only the fields that are needed. Looking at the same user again costs no API requests, and no database or server-side files are needed.
 - **Input whitelisting:**
   - Chart types, column numbers and modes are checked against fixed lists.
   - Usernames are checked against GitHub's rules: 1 to 39 characters, letters, digits and single hyphens.
@@ -127,7 +128,7 @@ GitHub data and CSV uploads both end up in this shape, so one set of statistics 
 
 ### Requirements
 
-- PHP 8.2 or newer with the `openssl`, `mbstring` and `fileinfo` extensions (check with `php -m`).
+- PHP 8.5 or newer with the `openssl`, `mbstring` and `fileinfo` extensions (check with `php -v` and `php -m`).
 - Nothing else: no Composer, Node.js or database.
 
 ### Run locally
@@ -176,20 +177,20 @@ They use saved JSON fixtures instead of calling the real API. Instructions will 
 RepoScope/
 ├── public/                    web root: the only folder the browser can reach
 │   ├── index.php              home page: pick a mode
-│   ├── profile.php            Profile mode *
+│   ├── profile.php            Profile mode
 │   ├── analyze.php            Analyze mode *
 │   ├── compare.php            Compare mode *
 │   ├── export.php             CSV download *
-│   ├── js/charts.js           canvas chart functions *
+│   ├── js/charts.js           canvas chart functions
 │   ├── css/style.css          dark theme and chart colours
 │   └── favicon.svg
 ├── includes/
 │   ├── bootstrap.php          error handling, security headers, session
 │   ├── helpers.php            escaping, validation, CSRF
 │   ├── layout.php             header, navigation, footer
-│   ├── github.php             GitHub API client and session cache *
+│   ├── github.php             GitHub API client and session cache
 │   ├── csv.php                upload validation, parsing, export *
-│   └── stats.php              statistics and type detection *
+│   └── stats.php              chart-data builders (statistics and type detection *)
 ├── config/
 │   ├── config.php             limits and defaults
 │   └── config.local.php       your GitHub token (optional, git-ignored)
@@ -205,7 +206,7 @@ RepoScope/
 ## Roadmap
 
 - [x] **Phase 1:** config, bootstrap (error handling, security headers, session), helpers, layout, home page, CSS theme
-- [ ] **Phase 2:** GitHub API client with session cache, Profile mode, canvas charts
+- [x] **Phase 2:** GitHub API client with session cache, Profile mode, canvas charts
 - [ ] **Phase 3:** CSV upload and parsing, statistics, Analyze mode
 - [ ] **Phase 4:** Compare mode, CSV export with formula-injection protection
 - [ ] **Phase 5:** PHPUnit tests, GitHub Actions CI, Dockerfile, deployment
@@ -221,6 +222,9 @@ RepoScope/
 - Languages keep moving: PHP 8.5 deprecates `$http_response_header` in favour of `http_get_last_response_headers()`.
 - How to pick chart colours that stay distinguishable for colour-blind users, and check them with a validator instead of by eye.
 - How to run a modern PHP next to XAMPP on Windows: `php.ini`, extensions and CA certificates.
+- A canvas needs its pixel buffer scaled by `devicePixelRatio`, or charts look blurry on high-DPI screens.
+- Tooltips on a canvas mean doing your own hit-testing: working out which bar, slice or point is under the pointer.
+- GitHub allows 60 unauthenticated requests per hour per IP address, shared with everything else on the same network, so caching and counting requests matter.
 
 ## License
 
