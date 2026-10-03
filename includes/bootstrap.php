@@ -21,6 +21,8 @@ error_reporting(E_ALL);
 require __DIR__ . '/../config/config.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/layout.php';
+require __DIR__ . '/github.php';
+require __DIR__ . '/stats.php';
 
 // Safety net: if an exception is thrown and no code catches it, log the details
 // for us and show the visitor a friendly message instead of a stack trace.

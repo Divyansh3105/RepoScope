@@ -43,6 +43,17 @@ function is_valid_username(string $username): bool
 }
 
 /**
+ * Returns $url only if it is an http:// or https:// address, otherwise ''.
+ * SECURITY: escaping alone doesn't make a URL safe in href="...": a link to
+ * "javascript:alert(1)" would run code when clicked. Use this for URLs from GitHub or users.
+ */
+function safe_url(string $url): string
+{
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    return in_array($scheme, ['http', 'https'], true) ? $url : '';
+}
+
+/**
  * Whitelist check for values from $_GET/$_POST: returns $value only if it is
  * exactly one of $allowed, otherwise $default.
  * Example: pick($_GET['type'] ?? null, ['bar', 'line', 'pie'], 'bar')
