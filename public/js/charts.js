@@ -1,16 +1,19 @@
 /*
- * RepoScope charts: bar, line and pie charts drawn on <canvas> with plain JavaScript.
+ * RepoScope charts: bar, ranked bar, line and pie charts drawn on <canvas> with plain JavaScript.
  *
  * How a chart gets onto the page:
  *   1. PHP prints a <canvas data-chart="bar" data-source="chart-2"> and next to it
  *      <script type="application/json" id="chart-2">{"title": …, "labels": […], "values": […]}</script>
  *      (the title is also printed by PHP as the chart's heading).
  *   2. This file is loaded with `defer`, so it runs once the HTML is parsed. It finds every
- *      canvas[data-chart], reads its JSON with JSON.parse and calls drawBar, drawLine or drawPie.
+ *      canvas[data-chart], reads its JSON with JSON.parse and calls drawBar, drawHBar, drawLine or drawPie.
  *
- * drawBar, drawLine and drawPie are reusable with any canvas and any { labels, values, title }
- * object. Each returns what it drew plus hitTest(x, y), which the tooltip code uses to find
- * the bar, slice or point under the pointer.
+ * drawBar, drawHBar, drawLine and drawPie are reusable with any canvas and any { labels, values, title }
+ * object. Each returns what it drew, where each mark sits (anchor) and hitTest(x, y), which the
+ * tooltip uses to find the bar, slice or station under the pointer.
+ *
+ * The look is RepoScope's transit theme: categories are "lines" with coloured bullets and a
+ * line chart is a route with stations. Motion: transitions.dev timings, GSAP for the draw-in.
  */
 'use strict';
 
@@ -30,10 +33,30 @@ function chartTheme() {
         axis: get('--chart-axis'),
         label: get('--chart-text'),
         lift: get('--chart-lift'),
-        ink: get('--text'),
-        surface: get('--surface'),
+        ink: get('--ink'),
+        surface: get('--panel'),
+        plate: get('--plate'),
         font: get('--font'),
     };
+}
+
+/** CSS class for line colour slot i (0-7); 8 and up is the grey "Other" line. */
+function lineClass(slot) {
+    return slot < 8 ? 'line-' + (slot + 1) : 'line-other';
+}
+
+/**
+ * Two-letter code for a line bullet: "JavaScript" → "JS", "Jupyter Notebook" → "JN",
+ * "HTML" → "HT", "Python" → "Py". Same rule as line_code() in includes/layout.php.
+ */
+function lineCode(label) {
+    const text = String(label).trim();
+    const words = text.split(/[\s_-]+/).filter(Boolean);
+    if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+    if (/^[A-Z0-9#+]+$/.test(text)) return text.slice(0, 2);
+    const capitals = text.replace(/[^A-Z]/g, '');
+    if (capitals.length >= 2) return capitals.slice(0, 2);
+    return text.charAt(0).toUpperCase() + text.charAt(1).toLowerCase();
 }
 
 /**
@@ -146,7 +169,7 @@ function drawAxes(ctx, width, height, data, theme) {
     return { left, top, plotWidth, plotHeight, band, y };
 }
 
-/** Index of the category column under (x, y), or -1. The whole column counts, not just the bar. */
+/** Index of the category column under (x, y), or -1. The whole column counts, not just the mark. */
 function bandAt(layout, count, x, y) {
     const inside = x >= layout.left && x <= layout.left + layout.plotWidth
         && y >= layout.top && y <= layout.top + layout.plotHeight;
@@ -160,13 +183,17 @@ function drawEmpty(ctx, width, height, theme) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('No data to show', width / 2, height / 2);
-    return { labels: [], values: [], colors: [], hitTest: () => -1 };
+    return { labels: [], values: [], slots: [], anchor: () => ({ x: 0, y: 0 }), hitTest: () => -1 };
 }
 
 /* ---------- The three charts ---------- */
 
-/** Bar chart: one bar per label, measured from zero. hover = index of the highlighted bar, or -1. */
-function drawBar(canvas, data, hover = -1) {
+/**
+ * Bar chart: one bar per label, measured from zero.
+ * hover: index of the highlighted bar, or -1. progress: 0-1 for every bar, or an array with
+ * one value per bar (the draw-in grows each bar from the baseline).
+ */
+function drawBar(canvas, data, hover = -1, progress = 1) {
     const { ctx, width, height } = prepareCanvas(canvas);
     const theme = chartTheme();
     if (data.labels.length === 0) return drawEmpty(ctx, width, height, theme);
@@ -177,15 +204,15 @@ function drawBar(canvas, data, hover = -1) {
     const zero = layout.y(0);
 
     data.values.forEach((value, i) => {
+        const grown = value * (Array.isArray(progress) ? progress[i] : progress);
         const x = layout.left + layout.band * i + (layout.band - barWidth) / 2;
-        const end = layout.y(value);
-        const top = Math.min(zero, end);
+        const end = layout.y(grown);
         const length = Math.abs(zero - end);
+        if (length < 0.5) return;
         const radius = Math.min(4, barWidth / 2, length);
         // Only the data end is rounded: the top of a positive bar, the bottom of a negative one.
-        const corners = value >= 0 ? [radius, radius, 0, 0] : [0, 0, radius, radius];
         ctx.beginPath();
-        ctx.roundRect(x, top, barWidth, length, corners);
+        ctx.roundRect(x, Math.min(zero, end), barWidth, length, value >= 0 ? [radius, radius, 0, 0] : [0, 0, radius, radius]);
         ctx.fillStyle = theme.series[0];
         ctx.fill();
         if (i === hover) { // the hovered bar lightens, so the reader sees it respond
@@ -197,13 +224,85 @@ function drawBar(canvas, data, hover = -1) {
     return {
         labels: data.labels.map(String),
         values: data.values,
-        colors: data.values.map(() => theme.series[0]),
+        slots: data.values.map(() => 0),
+        anchor: (i) => ({ x: layout.left + layout.band * (i + 0.5), y: Math.min(zero, layout.y(data.values[i])) }),
         hitTest: (x, y) => bandAt(layout, data.labels.length, x, y),
     };
 }
 
-/** Line chart: one point per label, joined in order (for example, years). */
-function drawLine(canvas, data, hover = -1) {
+/**
+ * Ranked bar chart: one horizontal bar per label, longest first, with the name on the left and
+ * the exact value at the end of the bar. Long names (repositories) stay readable instead of
+ * being turned 45° under the bars. Values are counts, so the bars start at zero.
+ * progress: 0-1, or one value per bar (the draw-in grows each bar from the left).
+ */
+function drawHBar(canvas, data, hover = -1, progress = 1) {
+    const { ctx, width, height } = prepareCanvas(canvas);
+    const theme = chartTheme();
+    if (data.labels.length === 0) return drawEmpty(ctx, width, height, theme);
+
+    ctx.font = '13px ' + theme.font;
+    const max = Math.max(...data.values, 0) || 1; // all zeros: still a sensible scale
+    const names = data.labels.map(String);
+    const labelWidth = Math.min(width * 0.4, Math.max(...names.map((name) => ctx.measureText(name).width)));
+    const left = labelWidth + 12;
+    const plotWidth = Math.max(10, width - left - ctx.measureText(numberFormat.format(max)).width - 10);
+    const band = height / names.length;                     // one row per bar
+    const barHeight = Math.max(2, Math.min(16, band * 0.6));
+    const length = (value) => (Math.max(0, value) / max) * plotWidth;
+
+    // The baseline every bar grows from
+    ctx.strokeStyle = theme.axis;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(left) + 0.5, 0);
+    ctx.lineTo(Math.round(left) + 0.5, height);
+    ctx.stroke();
+
+    ctx.textBaseline = 'middle';
+    data.values.forEach((value, i) => {
+        const share = Array.isArray(progress) ? progress[i] : progress;
+        const middle = band * (i + 0.5);
+        const bar = length(value * share);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = i === hover ? theme.ink : theme.label;
+        ctx.fillText(fitText(ctx, names[i], labelWidth), labelWidth, middle);
+
+        if (bar >= 0.5) {
+            const radius = Math.min(4, barHeight / 2, bar);
+            ctx.beginPath();
+            ctx.roundRect(left, middle - barHeight / 2, bar, barHeight, [0, radius, radius, 0]); // only the data end is rounded
+            ctx.fillStyle = theme.series[0];
+            ctx.fill();
+            if (i === hover) {
+                ctx.fillStyle = theme.lift;
+                ctx.fill();
+            }
+        }
+        // The exact value rides on the end of the bar and fades in as the bar grows.
+        ctx.globalAlpha = share;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = i === hover ? theme.ink : theme.label;
+        ctx.fillText(numberFormat.format(value), left + bar + 6, middle);
+        ctx.globalAlpha = 1;
+    });
+
+    return {
+        labels: names,
+        values: data.values,
+        slots: data.values.map(() => 0),
+        anchor: (i) => ({ x: left + length(data.values[i]), y: band * (i + 0.5) - barHeight / 2 }),
+        hitTest: (x, y) => (x >= 0 && x <= width && y >= 0 && y < height ? Math.min(names.length - 1, Math.floor(y / band)) : -1),
+    };
+}
+
+/**
+ * Line chart, drawn as a transit route: a 3px line with a hollow station on every point.
+ * The hovered station becomes a white interchange. progress (0-1) draws the route from the
+ * left, and each station appears as the line reaches it.
+ */
+function drawLine(canvas, data, hover = -1, progress = 1) {
     const { ctx, width, height } = prepareCanvas(canvas);
     const theme = chartTheme();
     if (data.labels.length === 0) return drawEmpty(ctx, width, height, theme);
@@ -211,7 +310,7 @@ function drawLine(canvas, data, hover = -1) {
     const layout = drawAxes(ctx, width, height, data, theme);
     const points = data.values.map((value, i) => ({ x: layout.left + layout.band * (i + 0.5), y: layout.y(value) }));
 
-    if (hover >= 0) { // crosshair: a vertical hairline through the hovered point
+    if (hover >= 0) { // crosshair: a vertical hairline through the hovered station
         const x = Math.round(points[hover].x) + 0.5;
         ctx.strokeStyle = theme.axis;
         ctx.lineWidth = 1;
@@ -221,41 +320,60 @@ function drawLine(canvas, data, hover = -1) {
         ctx.stroke();
     }
 
+    // How far along the route the pen has travelled (all of it, unless the draw-in is running).
+    const distance = [0];
+    for (let i = 1; i < points.length; i++) {
+        distance.push(distance[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+    }
+    const drawn = distance[distance.length - 1] * progress;
+
     ctx.strokeStyle = theme.series[0];
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.beginPath();
-    points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+    points.forEach((p, i) => {
+        if (i === 0) {
+            ctx.moveTo(p.x, p.y);
+        } else if (distance[i] <= drawn) {
+            ctx.lineTo(p.x, p.y);
+        } else if (distance[i - 1] < drawn) { // the segment the pen is drawing right now
+            const t = (drawn - distance[i - 1]) / (distance[i] - distance[i - 1]);
+            ctx.lineTo(points[i - 1].x + (p.x - points[i - 1].x) * t, points[i - 1].y + (p.y - points[i - 1].y) * t);
+        }
+    });
     ctx.stroke();
 
-    // Dots on every point when there is room, otherwise only on the hovered one. Each dot
-    // gets a 2px ring in the card colour so it stands clear of the line.
+    // Stations: hollow rings on the route, or only the hovered one when the route is crowded.
     points.forEach((p, i) => {
+        if (distance[i] > drawn + 0.5) return;             // the line hasn't reached it yet
         if (layout.band < 14 && i !== hover) return;
+        const interchange = i === hover;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, i === hover ? 6 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = theme.series[0];
+        ctx.arc(p.x, p.y, interchange ? 7 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = interchange ? theme.plate : theme.surface;
         ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = theme.surface;
+        ctx.lineWidth = interchange ? 3 : 2.5;
+        ctx.strokeStyle = theme.series[0];
         ctx.stroke();
     });
 
     return {
         labels: data.labels.map(String),
         values: data.values,
-        colors: data.values.map(() => theme.series[0]),
-        hitTest: (x, y) => bandAt(layout, data.labels.length, x, y), // anywhere in the column snaps to its point
+        slots: data.values.map(() => 0),
+        anchor: (i) => points[i],
+        hitTest: (x, y) => bandAt(layout, data.labels.length, x, y), // anywhere in the column snaps to its station
     };
 }
 
 /**
  * Pie chart, drawn as a donut with the total in the middle. Slices run clockwise from
- * 12 o'clock, largest first. With more than 8 categories, the 8 largest keep a colour and
+ * 12 o'clock, largest first. With more than 8 categories, the 8 largest keep a line colour and
  * the rest are combined into one grey "Other" slice (more colours would be hard to tell apart).
+ * progress (0-1) sweeps the donut round from 12 o'clock.
  */
-function drawPie(canvas, data, hover = -1) {
+function drawPie(canvas, data, hover = -1, progress = 1) {
     const { ctx, width, height } = prepareCanvas(canvas);
     const theme = chartTheme();
 
@@ -270,7 +388,7 @@ function drawPie(canvas, data, hover = -1) {
     }
     const total = slices.reduce((sum, slice) => sum + slice.value, 0);
     if (total === 0) return drawEmpty(ctx, width, height, theme);
-    const colors = slices.map((slice, i) => (i < 8 ? theme.series[i] : theme.other));
+    const slots = slices.map((slice, i) => i); // slot 8 is the "Other" slice
 
     const cx = width / 2;
     const cy = height / 2;
@@ -282,16 +400,19 @@ function drawPie(canvas, data, hover = -1) {
         angle += (slice.value / total) * Math.PI * 2;
         return { start, end: angle };
     });
+    const sweepEnd = -Math.PI / 2 + Math.PI * 2 * progress;
 
     arcs.forEach((arc, i) => {
+        const end = Math.min(arc.end, sweepEnd);
+        if (end <= arc.start) return;
         const radius = i === hover ? outer + 6 : outer; // the hovered slice grows a little
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, arc.start, arc.end);
-        ctx.arc(cx, cy, inner, arc.end, arc.start, true);
+        ctx.arc(cx, cy, radius, arc.start, end);
+        ctx.arc(cx, cy, inner, end, arc.start, true);
         ctx.closePath();
-        ctx.fillStyle = colors[i];
+        ctx.fillStyle = i < 8 ? theme.series[i] : theme.other;
         ctx.fill();
-        ctx.lineWidth = 2; // a 2px line in the card colour leaves a gap between slices
+        ctx.lineWidth = 2; // a 2px line in the panel colour leaves a gap between slices
         ctx.strokeStyle = theme.surface;
         ctx.stroke();
     });
@@ -310,8 +431,13 @@ function drawPie(canvas, data, hover = -1) {
     return {
         labels: slices.map((slice) => slice.label),
         values: slices.map((slice) => slice.value),
-        colors,
+        slots,
         total,
+        anchor(i) { // the middle of the slice's ring
+            const mid = (arcs[i].start + arcs[i].end) / 2;
+            const r = (inner + outer) / 2;
+            return { x: cx + Math.cos(mid) * r, y: cy + Math.sin(mid) * r };
+        },
         hitTest(x, y) {
             const distance = Math.hypot(x - cx, y - cy);
             if (distance < inner || distance > outer + 6) return -1;
@@ -322,18 +448,25 @@ function drawPie(canvas, data, hover = -1) {
     };
 }
 
-/* ---------- Wiring: find each chart, draw it, add a legend and tooltips ---------- */
+/* ---------- Wiring: find each chart, draw it, add a legend, tooltips and the draw-in ---------- */
 
-const drawFunctions = { bar: drawBar, line: drawLine, pie: drawPie };
+const drawFunctions = { bar: drawBar, hbar: drawHBar, line: drawLine, pie: drawPie };
+const perBar = (type) => type === 'bar' || type === 'hbar'; // these animate one progress value per bar
 
-/** The colour key shown beside a pie chart. */
+/** A line bullet element (the same look as line_bullet() in includes/layout.php). */
+function makeBullet(label, slot) {
+    const bullet = document.createElement('span');
+    bullet.className = 'bullet ' + lineClass(slot);
+    bullet.setAttribute('aria-hidden', 'true');
+    bullet.textContent = slot < 8 ? lineCode(label) : '+'; // "Other" gets a plus
+    return bullet;
+}
+
+/** The pie's key: a line bullet, the name and its share for every slice. */
 function buildLegend(result) {
     const list = document.createElement('ul');
     list.className = 'chart-legend';
     result.labels.forEach((label, i) => {
-        const swatch = document.createElement('span');
-        swatch.className = 'swatch';
-        swatch.style.background = result.colors[i]; // setting style from a script is allowed by our CSP
         const name = document.createElement('span');
         name.className = 'legend-label';
         name.textContent = label; // SECURITY: textContent, never innerHTML, because labels come from users' data
@@ -341,74 +474,132 @@ function buildLegend(result) {
         share.className = 'legend-value';
         share.textContent = percentFormat.format(result.values[i] / result.total);
         const item = document.createElement('li');
-        item.append(swatch, name, share);
+        item.append(makeBullet(label, result.slots[i]), name, share);
         list.append(item);
     });
     return list;
 }
 
+/**
+ * The one authored moment, run with GSAP: when fresh data arrives from GitHub (PHP marks the
+ * section with data-animate), the bars rise, the donut sweeps round and the route draws itself
+ * station by station. Cached views and reduced-motion users get the finished chart at once.
+ */
+function drawIn(type, reveal, redraw) {
+    const mm = gsap.matchMedia();
+    mm.add({ motion: '(prefers-reduced-motion: no-preference)', reduce: '(prefers-reduced-motion: reduce)' }, (context) => {
+        const targets = Array.isArray(reveal) ? reveal : [reveal];
+        if (context.conditions.reduce) {
+            targets.forEach((target) => { target.p = 1; });
+            redraw();
+            return;
+        }
+        // power4.out is the same curve family as transitions.dev's --ease-smooth-out.
+        const timeline = gsap.timeline({ defaults: { ease: 'power4.out' }, onUpdate: redraw });
+        if (perBar(type)) {
+            // 40ms between bars (--duration-stagger), but the whole stagger stays under 300ms.
+            const each = Math.min(0.04, 0.3 / Math.max(1, targets.length - 1));
+            timeline.to(targets, { p: 1, duration: 0.5, stagger: each });
+        } else if (type === 'line') {
+            timeline.to(targets, { p: 1, duration: 0.7, ease: 'power2.inOut' }); // a pen draws at an even pace
+        } else {
+            timeline.to(targets, { p: 1, duration: 0.6 });
+        }
+    });
+}
+
 function setUpChart(canvas) {
-    const draw = drawFunctions[canvas.dataset.chart];
+    const type = canvas.dataset.chart;
+    const draw = drawFunctions[type];
     const source = document.getElementById(canvas.dataset.source);
     if (!draw || !source) return;
     const data = JSON.parse(source.textContent); // the JSON block PHP printed next to the canvas
 
-    // One tooltip per chart: the value first (strong), then a colour key and the label.
+    // Draw-in state: one progress value per bar, or one for the whole line or pie.
+    const animate = Boolean(canvas.closest('[data-animate]')) && typeof gsap !== 'undefined';
+    const start = animate ? 0 : 1;
+    const reveal = perBar(type) ? data.values.map(() => ({ p: start })) : { p: start };
+
+    // A ranked bar chart is as tall as its rows (32px each), so a short list leaves no empty band.
+    if (type === 'hbar') canvas.style.height = Math.max(3, data.labels.length) * 32 + 'px';
+    const progress = () => (Array.isArray(reveal) ? reveal.map((r) => r.p) : reveal.p);
+
+    // One tooltip per chart: the value leads, then a colour key and the label.
     const box = canvas.parentElement; // .chart-canvas, which the tooltip is positioned inside
     const tooltip = document.createElement('div');
     tooltip.className = 'chart-tooltip';
-    tooltip.hidden = true;
+    tooltip.setAttribute('aria-hidden', 'true'); // the data table below is the accessible version
     const tipValue = document.createElement('strong');
+    tipValue.className = 'tip-value';
     const tipLabel = document.createElement('span');
     tipLabel.className = 'tip-label';
     const tipKey = document.createElement('span');
-    tipKey.className = 'tip-key';
     const tipText = document.createElement('span');
     tipLabel.append(tipKey, tipText);
     tooltip.append(tipValue, tipLabel);
     box.append(tooltip);
 
     let hover = -1;
-    let result = draw(canvas, data, hover);
-    if (canvas.dataset.chart === 'pie' && result.labels.length > 0) {
-        box.after(buildLegend(result));
+    let result;
+    const redraw = () => { result = draw(canvas, data, hover, progress()); };
+    redraw();
+    if (type === 'pie' && result.labels.length > 0) {
+        box.after(buildLegend(drawPie(canvas, data, -1, 1))); // the legend always describes the finished pie
+        redraw();
     }
 
     // Redraw whenever the canvas changes size: window resizes, phone rotation, a scrollbar appearing…
-    new ResizeObserver(() => { result = draw(canvas, data, hover); }).observe(canvas);
+    new ResizeObserver(redraw).observe(canvas);
+    // …and once the web font has loaded: canvas text doesn't update by itself when a font swaps in.
+    document.fonts.ready.then(redraw);
+    if (animate) drawIn(type, reveal, redraw);
 
-    function showTooltip(event) {
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const index = result.hitTest(x, y);
-        if (index !== hover) { // only redraw when the highlighted mark changes
-            hover = index;
-            result = draw(canvas, data, hover);
-        }
-        if (index < 0) {
-            tooltip.hidden = true;
-            return;
-        }
+    function hideTooltip() {
+        tooltip.dataset.show = 'false';
+    }
+
+    // transitions.dev tooltip: when hidden, the plate jumps to the new mark and only the appear
+    // plays; when already showing, it travels from mark to mark.
+    function showTooltip(index) {
         const value = result.values[index];
         tipValue.textContent = numberFormat.format(value)
             + (result.total ? ' (' + percentFormat.format(value / result.total) + ')' : '');
         tipText.textContent = result.labels[index]; // SECURITY: textContent again
-        tipKey.style.background = result.colors[index];
-        tooltip.hidden = false;
-        // Sit beside the pointer, flipping to its left near the right edge of the chart.
-        const left = x + 16 + tooltip.offsetWidth > rect.width ? x - 16 - tooltip.offsetWidth : x + 16;
-        tooltip.style.left = Math.max(0, left) + 'px';
-        tooltip.style.top = Math.max(0, y - tooltip.offsetHeight - 8) + 'px';
+        tipKey.className = 'tip-key ' + lineClass(result.slots[index]);
+
+        const mark = result.anchor(index);
+        const width = tooltip.offsetWidth;
+        const height = tooltip.offsetHeight;
+        const x = Math.min(Math.max(0, mark.x - width / 2), canvas.clientWidth - width);
+        const y = mark.y - height - 12 >= 0 ? mark.y - height - 12 : mark.y + 12; // above the mark, or below near the top
+        const showing = tooltip.dataset.show === 'true';
+        if (!showing) tooltip.style.transition = 'none';
+        tooltip.style.setProperty('--tt-x', x + 'px');
+        tooltip.style.setProperty('--tt-y', y + 'px');
+        if (!showing) {
+            void tooltip.offsetWidth; // apply the jump before the appear transition is restored
+            tooltip.style.transition = '';
+        }
+        tooltip.dataset.show = 'true';
     }
 
-    canvas.addEventListener('pointermove', showTooltip);
-    canvas.addEventListener('pointerdown', showTooltip); // a tap on touch screens
+    function onPointer(event) {
+        const rect = canvas.getBoundingClientRect();
+        const index = result.hitTest(event.clientX - rect.left, event.clientY - rect.top);
+        if (index === hover) return; // same mark: nothing to redraw
+        hover = index;
+        redraw();
+        if (index < 0) hideTooltip();
+        else showTooltip(index);
+    }
+
+    canvas.addEventListener('pointermove', onPointer);
+    canvas.addEventListener('pointerdown', onPointer); // a tap on touch screens
     canvas.addEventListener('pointerleave', (event) => {
         if (event.pointerType === 'touch') return; // on touch, keep the tooltip until the next tap
         hover = -1;
-        tooltip.hidden = true;
-        result = draw(canvas, data, hover);
+        hideTooltip();
+        redraw();
     });
 }
 

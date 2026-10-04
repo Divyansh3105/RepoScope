@@ -12,7 +12,7 @@ declare(strict_types=1);
  * it (<?php) when we need PHP again. The HTML is printed when the function runs.
  */
 
-/** Prints the top of every page: <head>, the site header and the navigation. */
+/** Prints the top of every page: <head>, the sign band (brand and navigation). */
 function render_header(string $title, string $active = ''): void
 {
     // nav key => [link, label]. Links are relative, so the site also works from a sub-folder.
@@ -31,14 +31,18 @@ function render_header(string $title, string $active = ''): void
     <title><?= e($title) ?> · RepoScope</title>
     <!-- Declaring an icon stops browsers requesting /favicon.ico, which `php -S` would answer by running index.php. -->
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <!-- Start downloading the main font file right away, instead of waiting for the CSS to ask for it. -->
+    <link rel="preload" href="fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="css/style.css">
-    <!-- defer: download now, run after the HTML is parsed, so the script can find every <canvas>. -->
+    <!-- defer: download now, run in this order after the HTML is parsed, so the scripts can find the page. -->
+    <script src="js/vendor/gsap.min.js" defer></script>
     <script src="js/charts.js" defer></script>
+    <script src="js/ui.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-    <div class="container header-inner">
+<header class="sign-band">
+    <div class="container band-inner">
         <a class="brand" href="index.php">
             <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -60,6 +64,38 @@ function render_header(string $title, string $active = ''): void
     <?php
 }
 
+/**
+ * Two-letter code for a line bullet: "JavaScript" → "JS", "Jupyter Notebook" → "JN",
+ * "HTML" → "HT", "Python" → "Py". js/charts.js uses the same rule for the pie legend.
+ */
+function line_code(string $label): string
+{
+    $label = trim($label);
+    $words = preg_split('/[\s_-]+/', $label, -1, PREG_SPLIT_NO_EMPTY);
+    if (count($words) >= 2) {
+        return mb_strtoupper(mb_substr($words[0], 0, 1) . mb_substr($words[1], 0, 1));
+    }
+    if (preg_match('/^[A-Z0-9#+]+$/', $label)) { // all capitals or symbols: HTML, CSS, C#, C++
+        return mb_substr($label, 0, 2);
+    }
+    $capitals = preg_replace('/[^A-Z]/', '', $label);
+    if (strlen($capitals) >= 2) {                 // CamelCase: JavaScript, TypeScript
+        return substr($capitals, 0, 2);
+    }
+    return mb_strtoupper(mb_substr($label, 0, 1)) . mb_strtolower(mb_substr($label, 1, 1));
+}
+
+/**
+ * A transit-style line bullet: a coloured disc carrying a two-letter code.
+ * $slot 0-7 picks the line colour (the same order the charts use); 8 and up is "Other".
+ * It is decorative (the name is always printed next to it), so screen readers skip it.
+ */
+function line_bullet(string $label, int $slot, string $size = ''): string
+{
+    $classes = 'bullet ' . ($slot < 8 ? 'line-' . ($slot + 1) : 'line-other') . ($size !== '' ? ' ' . $size : '');
+    return '<span class="' . e($classes) . '" aria-hidden="true">' . e(line_code($label)) . '</span>';
+}
+
 /** Formats one table cell: numbers get thousands separators, everything else is escaped text. */
 function format_cell(mixed $value): string
 {
@@ -70,8 +106,12 @@ function format_cell(mixed $value): string
     };
 }
 
-/** Prints a table-shaped array (['headers' => [...], 'rows' => [[...], ...]]) as an HTML table. */
-function render_table(array $table): void
+/**
+ * Prints a table-shaped array (['headers' => [...], 'rows' => [[...], ...]]) as an HTML table.
+ * $formatters can map a column number to a function that returns that column's cell HTML
+ * (it must escape what it prints), for example to put a line bullet before a language.
+ */
+function render_table(array $table, array $formatters = []): void
 {
     if ($table['rows'] === []) {
         echo '<p class="muted">No rows to show.</p>';
@@ -93,7 +133,7 @@ function render_table(array $table): void
             <?php foreach ($table['rows'] as $row): ?>
                 <tr>
                     <?php foreach ($row as $i => $cell): ?>
-                        <td<?= ($numeric[$i] ?? false) ? ' class="num"' : '' ?>><?= format_cell($cell) ?></td>
+                        <td<?= ($numeric[$i] ?? false) ? ' class="num"' : '' ?>><?= isset($formatters[$i]) ? $formatters[$i]($cell) : format_cell($cell) ?></td>
                     <?php endforeach; ?>
                 </tr>
             <?php endforeach; ?>
@@ -104,14 +144,15 @@ function render_table(array $table): void
 }
 
 /**
- * Prints one chart card: a heading, the <canvas> js/charts.js draws on, the chart data
+ * Prints one chart panel: a heading, the <canvas> js/charts.js draws on, the chart data
  * as JSON, and the same data as an HTML table (for screen readers, and exact numbers).
  *
- * $type    'bar', 'line' or 'pie'
+ * $type    'bar', 'hbar' (ranked, horizontal bars), 'line' or 'pie'
  * $chart   ['title' => ..., 'labels' => [...], 'values' => [...]] from a function in stats.php
  * $columns the data table's two column names, e.g. ['Language', 'Repositories']
+ * $note    one line under the title saying exactly what was counted (optional)
  */
-function render_chart(string $type, array $chart, array $columns, string $extraClass = ''): void
+function render_chart(string $type, array $chart, array $columns, string $extraClass = '', string $note = ''): void
 {
     static $count = 0;          // static: keeps its value between calls, so every chart gets a new id
     $id = 'chart-' . ++$count;  // ties the canvas to its JSON block and its heading
@@ -122,8 +163,11 @@ function render_chart(string $type, array $chart, array $columns, string $extraC
     $hasData = array_filter($chart['values']) !== []; // all zeros counts as nothing to draw
     $rows = array_map(null, $chart['labels'], $chart['values']); // array_map(null, ...) zips: [[label, value], ...]
     ?>
-<figure class="card chart <?= e($extraClass) ?>">
+<figure class="panel chart <?= e($extraClass) ?>">
     <h2 id="<?= $id ?>-title"><?= e($chart['title']) ?></h2>
+    <?php if ($note !== ''): ?>
+        <p class="chart-note"><?= e($note) ?></p>
+    <?php endif; ?>
     <?php if (!$hasData): ?>
         <p class="muted">Nothing to chart yet.</p>
     <?php else: ?>
@@ -134,7 +178,11 @@ function render_chart(string $type, array $chart, array $columns, string $extraC
         </div>
         <script type="application/json" id="<?= $id ?>"><?= $json ?></script>
         <details class="chart-data">
-            <summary>Show the data as a table</summary>
+            <summary>
+                <svg class="chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5L8 10.5L12 6.5"/></svg>
+                Data table <span class="muted">(<?= count($rows) ?> <?= count($rows) === 1 ? 'row' : 'rows' ?>)</span>
+            </summary>
             <?php render_table(['headers' => $columns, 'rows' => $rows]); ?>
         </details>
     <?php endif; ?>
@@ -148,7 +196,7 @@ function render_footer(): void
     ?>
 </main>
 <footer class="site-footer">
-    <div class="container">RepoScope · GitHub &amp; CSV analytics built with plain PHP and HTML5 Canvas</div>
+    <div class="container">RepoScope · GitHub and CSV analytics in plain PHP and HTML5 Canvas</div>
 </footer>
 </body>
 </html>
