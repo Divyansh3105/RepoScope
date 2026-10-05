@@ -5,3 +5,8 @@ config/config.local.php
 .claude/launch.json
 
 .claude/
+
+# Local design notes (design system, product brief, review screenshots), kept off GitHub.
+.impeccable/
+DESIGN.md
+PRODUCT.md

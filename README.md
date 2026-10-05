@@ -6,13 +6,13 @@
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks, libraries or a database, to show what core PHP can do on its own.
+RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks or a database, to show what core PHP can do on its own; the only library is a self-hosted GSAP file for chart animation.
 
 > **Status: work in progress.** Phases 1 and 2 of 5 are done: security foundations, layout and theme, the GitHub client and Profile mode with its charts. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
 
 ## Features
 
-- **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (bar, top 10) and a repository creation timeline (line).
+- **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (ranked horizontal bars, top 10) and a repository creation timeline (line).
 - **Compare mode** *(Phase 4)*: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column). You get a leaderboard (repositories, total stars, followers, number of languages), side-by-side bar charts and a combined language chart for the group. If one user fails, the rest still load, and users already cached cost no API calls.
 - **Analyze mode** *(Phase 3)*: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick columns to draw a bar, line or pie chart.
 - **Export** *(Phase 4)*: download any result table as a CSV file, generated on the fly.
@@ -34,7 +34,8 @@ Screenshots are added as each mode is finished.
 | Layer | Choice |
 |---|---|
 | Backend | PHP 8.5: plain functions, `require`, forms and sessions. No framework, no Composer |
-| Charts | HTML5 Canvas and vanilla JavaScript, no libraries |
+| Charts | HTML5 Canvas and vanilla JavaScript, no chart library |
+| Motion | [GSAP](https://gsap.com) 3.15, self-hosted (one file, no npm), for the chart draw-in; CSS transitions for everything else |
 | Styling | Plain CSS: custom properties, Grid and Flexbox |
 | Storage | PHP sessions only. No database, nothing saved to disk |
 | Data sources | GitHub REST API and user-uploaded CSV files |
@@ -46,7 +47,19 @@ Screenshots are added as each mode is finished.
 - No frameworks, Composer packages, Node.js, npm or build step.
 - No database, and no files saved on the server. Uploads are read from PHP's temporary upload location and never moved.
 - Pages are rendered by PHP, and navigation uses normal links and forms (no `fetch`).
-- JavaScript is used only to draw charts.
+- JavaScript draws the charts and adds small interface feedback (a "Looking up…" button state). Pages work without it: every chart has a data table, and every form submits normally.
+
+## Design
+
+The interface follows one visual idea, **the transit line system**. Every page has a black sign band with a white rule, and actions sit on white sign plates. Each category (a programming language, a CSV value) is a "line" with its own coloured bullet, and line charts are drawn as routes with stations. The full system, with tokens, components and rules, is in [DESIGN.md](DESIGN.md), and the product context it serves is in [PRODUCT.md](PRODUCT.md).
+
+It was designed with four public guides:
+- [Impeccable](https://impeccable.style) for the direction and its quality floor.
+- [transitions.dev](https://transitions.dev) for motion timings and the tooltip, disclosure, error-shake and text-swap recipes.
+- [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) for the details: press scale, hit areas, outlines, text wrapping.
+- The official [GSAP skills](https://github.com/greensock/gsap-skills) for the chart animation.
+
+Motion is deliberately small. Charts draw themselves in only when fresh data arrives from GitHub, never on a cached view, and everything moving is switched off for visitors who prefer reduced motion.
 
 ## Architecture: one table shape
 
@@ -182,7 +195,10 @@ RepoScope/
 │   ├── compare.php            Compare mode *
 │   ├── export.php             CSV download *
 │   ├── js/charts.js           canvas chart functions
-│   ├── css/style.css          dark theme and chart colours
+│   ├── js/ui.js               form feedback ("Looking up…")
+│   ├── js/vendor/gsap.min.js  GSAP 3.15 (own licence, see below)
+│   ├── css/style.css          the transit theme and chart colours
+│   ├── fonts/                 Hanken Grotesk (self-hosted, OFL licence inside)
 │   └── favicon.svg
 ├── includes/
 │   ├── bootstrap.php          error handling, security headers, session
@@ -197,6 +213,8 @@ RepoScope/
 ├── tests/                     PHPUnit tests *
 ├── .github/workflows/ci.yml   GitHub Actions workflow *
 ├── Dockerfile                 container image for Render *
+├── DESIGN.md                  design system: tokens, components, rules
+├── PRODUCT.md                 product context the design serves
 ├── LICENSE
 └── README.md
 ```
@@ -229,3 +247,5 @@ RepoScope/
 ## License
 
 [MIT](LICENSE) © 2026 Divyansh Garg
+
+`public/js/vendor/gsap.min.js` is GSAP by GreenSock, included unchanged under its own [Standard "No Charge" License](https://gsap.com/standard-license), not the MIT licence. The Hanken Grotesk font files in `public/fonts/` are under the SIL Open Font License ([OFL.txt](public/fonts/OFL.txt)).

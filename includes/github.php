@@ -55,7 +55,10 @@ function github_get(string $path): array
         return ['error' => 'Could not reach GitHub. Check your internet connection and try again.'];
     }
     if ($response['status'] !== 200) {
-        return ['error' => github_error_message($response['status'], $response['headers'], time())];
+        return [
+            'error'  => github_error_message($response['status'], $response['headers'], time()),
+            'status' => $response['status'], // lets a page tell "user not found" apart from other failures
+        ];
     }
     try {
         return ['data' => json_decode($body, true, 512, JSON_THROW_ON_ERROR)];

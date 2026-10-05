@@ -3,68 +3,118 @@ declare(strict_types=1);
 
 require __DIR__ . '/../includes/bootstrap.php';
 
-// PHP locks the session file while a request has it open, so other tabs wait.
-// This page never writes to the session, so release the lock straight away.
+// The last few people looked up (saved by profile.php). The session is the only storage,
+// and these cost no API requests to show. Each name is re-checked before it becomes a link.
+$recent = array_values(array_filter(
+    is_array($_SESSION['recent'] ?? null) ? $_SESSION['recent'] : [],
+    fn(mixed $name): bool => is_string($name) && is_valid_username($name)
+));
+
+// Nothing below writes to the session, so release its lock straight away.
 session_write_close();
+
+$examples = ['torvalds', 'gaearon', 'octocat'];
+
+// The modes, listed like the lines at a station entrance:
+// [line key, bullet letter, colour slot, title, text, link].
+$routes = [
+    ['p', 'P', 0, 'Profile', 'One developer: their languages, most-starred repositories and how their work grew year by year.', 'profile.php'],
+    ['c', 'C', 1, 'Compare', 'Up to 15 GitHub usernames from a CSV file: a leaderboard and charts for the whole group.', 'compare.php'],
+    ['a', 'A', 2, 'Analyze', 'Any CSV file: which columns hold numbers or text, summary statistics and a chart of the columns you pick.', 'analyze.php'],
+];
+
+/** One "Try" or "Recent" link to a profile. */
+function profile_chip(string $username): string
+{
+    return '<li><a class="chip" href="profile.php?user=' . e(rawurlencode($username)) . '">' . e($username) . '</a></li>';
+}
 
 render_header('Home', 'home');
 ?>
-<section class="hero">
-    <p class="eyebrow">GitHub &amp; CSV analytics</p>
-    <h1>See the story in your data.</h1>
-    <p class="lead">RepoScope turns GitHub profiles and CSV files into statistics and interactive charts. Pick a mode to start.</p>
-</section>
+<div class="home-hero">
+    <section class="intro">
+        <h1>GitHub profiles and CSV files, turned into tables and charts.</h1>
+        <p>Look up a developer, compare a group, or analyze any CSV. RepoScope converts each one into the same table, then works out the statistics and draws the charts.</p>
 
-<section class="grid" aria-label="Modes">
-    <article class="card mode-card">
-        <span class="icon-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
-            </svg>
-        </span>
-        <h2>Profile</h2>
-        <p>Look up one GitHub user: their languages, most-starred repositories and how their work grew over time.</p>
         <!-- GET, not POST: a lookup changes nothing, so the result URL can be bookmarked and shared. -->
-        <form action="profile.php" method="get">
-            <label for="user">GitHub username</label>
-            <div class="input-row">
-                <input id="user" name="user" type="text" required maxlength="39"
+        <form class="search" action="profile.php" method="get" role="search" data-pending="Looking up…">
+            <label for="user">Look up a GitHub user</label>
+            <div class="field-row">
+                <input id="user" name="user" type="text" required maxlength="40"
                        placeholder="e.g. torvalds" autocomplete="off" autocapitalize="off" spellcheck="false">
-                <button class="btn" type="submit">Analyze</button>
+                <button class="btn" type="submit"><span class="t-text-swap">Analyze</span></button>
             </div>
         </form>
-    </article>
 
-    <article class="card mode-card">
-        <span class="icon-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <path d="M5 21V11M12 21V4M19 21v-6"/>
-            </svg>
-        </span>
-        <h2>Compare</h2>
-        <p>Upload a CSV with up to 15 GitHub usernames to get a leaderboard and charts for the whole group.</p>
-        <a class="btn btn-secondary" href="compare.php">Open Compare</a>
-    </article>
+        <div class="quick">
+            <span class="quick-label" id="try-label">Try</span>
+            <ul class="chips" aria-labelledby="try-label">
+                <?php foreach ($examples as $name): ?><?= profile_chip($name) ?><?php endforeach; ?>
+            </ul>
+        </div>
+        <?php if ($recent !== []): ?>
+            <div class="quick">
+                <span class="quick-label" id="recent-label">Recent</span>
+                <ul class="chips" aria-labelledby="recent-label">
+                    <?php foreach ($recent as $name): ?><?= profile_chip($name) ?><?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+    </section>
 
-    <article class="card mode-card">
-        <span class="icon-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M10 4v16"/>
-            </svg>
-        </span>
-        <h2>Analyze</h2>
-        <p>Upload any CSV. RepoScope works out which columns hold numbers or text, summarises them and charts the columns you pick.</p>
-        <a class="btn btn-secondary" href="analyze.php">Open Analyze</a>
-    </article>
-</section>
+    <!-- The product's one idea, drawn as a line map: three sources run into one table,
+         and one trunk line carries every table on to statistics, charts and export. -->
+    <figure class="panel line-map">
+        <svg viewBox="0 0 480 282" role="img" aria-labelledby="map-title map-caption">
+            <title id="map-title">How RepoScope works</title>
+            <path class="map-line map-line-p" d="M24 40 H120 L210 130 H220"/>
+            <path class="map-line map-line-c" d="M24 150 H220"/>
+            <path class="map-line map-line-a" d="M24 260 H120 L210 170 H220"/>
+            <path class="map-trunk" d="M220 150 H445"/>
 
-<section class="card">
-    <h2>How it works</h2>
-    <ol class="steps">
-        <li><strong>Collect</strong>GitHub API responses and CSV uploads are converted into one table shape: a list of headers plus rows.</li>
-        <li><strong>Analyze</strong>The same statistics functions run on any table: counts, sums, averages, medians and top values.</li>
-        <li><strong>Visualize &amp; export</strong>Charts are drawn on HTML5 canvas, and every result table can be downloaded as a CSV file.</li>
-    </ol>
+            <g class="map-bullet line-1"><circle cx="24" cy="40" r="18"/><text x="24" y="40">P</text></g>
+            <g class="map-bullet line-2"><circle cx="24" cy="150" r="18"/><text x="24" y="150">C</text></g>
+            <g class="map-bullet line-3"><circle cx="24" cy="260" r="18"/><text x="24" y="260">A</text></g>
+            <text class="map-label" x="52" y="24">GitHub user</text>
+            <text class="map-label" x="52" y="134">Usernames CSV</text>
+            <text class="map-label" x="52" y="244">Any CSV</text>
+
+            <rect class="map-interchange" x="206" y="114" width="28" height="72" rx="14"/>
+            <text class="map-label map-label-strong" x="244" y="104">One table</text>
+
+            <circle class="map-station" cx="285" cy="150" r="9"/>
+            <circle class="map-station" cx="365" cy="150" r="9"/>
+            <circle class="map-station" cx="445" cy="150" r="9"/>
+            <text class="map-label" x="285" y="186" text-anchor="middle">Statistics</text>
+            <text class="map-label" x="365" y="128" text-anchor="middle">Charts</text>
+            <text class="map-label" x="458" y="186" text-anchor="end">CSV export</text>
+        </svg>
+        <figcaption class="map-caption" id="map-caption">
+            Every source becomes one table of headers and rows, so the same statistics, charts and CSV export work for all three.
+        </figcaption>
+    </figure>
+</div>
+
+<section class="section" aria-labelledby="modes-title">
+    <h2 class="section-title" id="modes-title">Modes</h2>
+    <ul class="routes">
+        <?php foreach ($routes as [$line, $letter, $slot, $title, $text, $href]): ?>
+            <li class="route" data-line="<?= e($line) ?>">
+                <span class="bullet bullet-lg line-<?= $slot + 1 ?>" aria-hidden="true"><?= e($letter) ?></span>
+                <div>
+                    <h3><?= e($title) ?></h3>
+                    <p><?= e($text) ?></p>
+                </div>
+                <a class="t-learn" href="<?= e($href) ?>">Open <?= e($title) ?>
+                    <span class="t-learn-chevron"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <path class="t-learn-arm t-learn-arm-top" d="M6 4L10 8"/>
+                        <path class="t-learn-arm t-learn-arm-bot" d="M10 8L6 12"/>
+                    </svg></span>
+                </a>
+            </li>
+        <?php endforeach; ?>
+    </ul>
 </section>
 <?php
 render_footer();
