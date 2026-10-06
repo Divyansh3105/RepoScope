@@ -99,26 +99,28 @@ function line_bullet(string $label, int $slot, string $size = ''): string
 /** Formats one table cell: numbers get thousands separators, everything else is escaped text. */
 function format_cell(mixed $value): string
 {
-    return match (true) {
-        is_int($value)   => number_format($value),
-        is_float($value) => rtrim(rtrim(number_format($value, 2), '0'), '.'), // 2.50 → "2.5", 3.00 → "3"
-        default          => e((string) $value),
-    };
+    if (is_float($value)) {
+        // Two decimals, but three significant digits below 1, so 0.0035 isn't shown as "0".
+        $decimals = $value == 0 || abs($value) >= 1 ? 2 : min(8, 2 - (int) floor(log10(abs($value))));
+        return rtrim(rtrim(number_format($value, $decimals), '0'), '.'); // 2.50 → "2.5", 3.00 → "3"
+    }
+    return is_int($value) ? number_format($value) : e((string) $value);
 }
 
 /**
  * Prints a table-shaped array (['headers' => [...], 'rows' => [[...], ...]]) as an HTML table.
  * $formatters can map a column number to a function that returns that column's cell HTML
  * (it must escape what it prints), for example to put a line bullet before a language.
+ * $numeric lists true/false per column; leave it out and the first row's cell types decide.
  */
-function render_table(array $table, array $formatters = []): void
+function render_table(array $table, array $formatters = [], ?array $numeric = null): void
 {
     if ($table['rows'] === []) {
         echo '<p class="muted">No rows to show.</p>';
         return;
     }
-    // Number columns are right-aligned, so digits line up. The first row decides.
-    $numeric = array_map(fn(mixed $cell): bool => is_int($cell) || is_float($cell), $table['rows'][0]);
+    // Number columns are right-aligned, so digits line up.
+    $numeric ??= array_map(fn(mixed $cell): bool => is_int($cell) || is_float($cell), $table['rows'][0]);
     ?>
 <div class="table-wrap">
     <table>

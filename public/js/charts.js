@@ -18,6 +18,9 @@
 'use strict';
 
 const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const smallFormat = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 3 });
+/** Two decimals, but three significant digits below 1 (like format_cell() in layout.php), so 0.0035 isn't "0". */
+const formatNumber = (value) => (value !== 0 && Math.abs(value) < 1 ? smallFormat : numberFormat).format(value);
 const percentFormat = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
 
 /* ---------- Shared helpers ---------- */
@@ -118,7 +121,7 @@ function drawAxes(ctx, width, height, data, theme) {
     // and shortened, and when the chart is crowded only every n-th label is drawn.
     const top = 12;
     const right = 16;
-    let left = Math.max(...ticks.map((v) => ctx.measureText(numberFormat.format(v)).width)) + 14;
+    let left = Math.max(...ticks.map((v) => ctx.measureText(formatNumber(v)).width)) + 14;
     let band = (width - left - right) / data.labels.length;
     const flat = data.labels.every((label) => ctx.measureText(String(label)).width <= band - 8);
     const labels = data.labels.map((label) => (flat ? String(label) : fitText(ctx, String(label), 110)));
@@ -145,7 +148,7 @@ function drawAxes(ctx, width, height, data, theme) {
         ctx.lineTo(width - right, lineY);
         ctx.stroke();
         ctx.fillStyle = theme.label;
-        ctx.fillText(numberFormat.format(value), left - 8, lineY);
+        ctx.fillText(formatNumber(value), left - 8, lineY);
     }
 
     // X-axis labels
@@ -246,7 +249,7 @@ function drawHBar(canvas, data, hover = -1, progress = 1) {
     const names = data.labels.map(String);
     const labelWidth = Math.min(width * 0.4, Math.max(...names.map((name) => ctx.measureText(name).width)));
     const left = labelWidth + 12;
-    const plotWidth = Math.max(10, width - left - ctx.measureText(numberFormat.format(max)).width - 10);
+    const plotWidth = Math.max(10, width - left - ctx.measureText(formatNumber(max)).width - 10);
     const band = height / names.length;                     // one row per bar
     const barHeight = Math.max(2, Math.min(16, band * 0.6));
     const length = (value) => (Math.max(0, value) / max) * plotWidth;
@@ -284,7 +287,7 @@ function drawHBar(canvas, data, hover = -1, progress = 1) {
         ctx.globalAlpha = share;
         ctx.textAlign = 'left';
         ctx.fillStyle = i === hover ? theme.ink : theme.label;
-        ctx.fillText(numberFormat.format(value), left + bar + 6, middle);
+        ctx.fillText(formatNumber(value), left + bar + 6, middle);
         ctx.globalAlpha = 1;
     });
 
@@ -422,7 +425,7 @@ function drawPie(canvas, data, hover = -1, progress = 1) {
     ctx.fillStyle = theme.ink;
     ctx.font = '600 22px ' + theme.font;
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(numberFormat.format(total), cx, cy + 4);
+    ctx.fillText(formatNumber(total), cx, cy + 4);
     ctx.fillStyle = theme.label;
     ctx.font = '12px ' + theme.font;
     ctx.textBaseline = 'top';
@@ -562,7 +565,7 @@ function setUpChart(canvas) {
     // plays; when already showing, it travels from mark to mark.
     function showTooltip(index) {
         const value = result.values[index];
-        tipValue.textContent = numberFormat.format(value)
+        tipValue.textContent = formatNumber(value)
             + (result.total ? ' (' + percentFormat.format(value / result.total) + ')' : '');
         tipText.textContent = result.labels[index]; // SECURITY: textContent again
         tipKey.className = 'tip-key ' + lineClass(result.slots[index]);

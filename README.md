@@ -8,13 +8,13 @@
 
 RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks or a database, to show what core PHP can do on its own; the only library is a self-hosted GSAP file for chart animation.
 
-> **Status: work in progress.** Phases 1 and 2 of 5 are done: security foundations, layout and theme, the GitHub client and Profile mode with its charts. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
+> **Status: work in progress.** Phases 1 to 3 of 5 are done: security foundations, layout and theme, the GitHub client, Profile mode and Analyze mode. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
 
 ## Features
 
 - **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (ranked horizontal bars, top 10) and a repository creation timeline (line).
 - **Compare mode** *(Phase 4)*: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column). You get a leaderboard (repositories, total stars, followers, number of languages), side-by-side bar charts and a combined language chart for the group. If one user fails, the rest still load, and users already cached cost no API calls.
-- **Analyze mode** *(Phase 3)*: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick columns to draw a bar, line or pie chart.
+- **Analyze mode**: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick a column to group by and a count, sum or average to draw a bar, line or pie chart, and preview the first 100 rows.
 - **Export** *(Phase 4)*: download any result table as a CSV file, generated on the fly.
 - **Hand-written canvas charts**: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
 
@@ -126,10 +126,11 @@ GitHub data and CSV uploads both end up in this shape, so one set of statistics 
   - The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS. That includes running behind Render's proxy, detected through `X-Forwarded-Proto`.
   - Strict mode rejects session IDs the server didn't create, and every new session gets a fresh ID, which blocks session fixation.
 - **API key protection:** the optional GitHub token comes from the `GITHUB_TOKEN` environment variable or a git-ignored `config/config.local.php`. It is only used in request headers that PHP sends to GitHub, and is never printed or sent to the browser.
-- **Upload validation** *(Phase 3)*:
-  - Checks the upload error code, the `.csv` extension, a 2 MB size limit and the real MIME type (using `fileinfo`).
+- **Upload validation:**
+  - Checks the upload error code, `is_uploaded_file()`, the `.csv` extension, a 2 MB size limit and the real MIME type (using `fileinfo`), plus a CSRF token on the upload form.
   - Files are read straight from PHP's temporary upload location and never moved or stored.
-  - Parsing stops at 5,000 rows and 50 columns.
+  - Parsing stops at 5,000 rows and 50 columns. Files saved by Excel in Windows-1252 are converted to UTF-8.
+  - After an upload the page redirects (Post/Redirect/Get), so refreshing never sends the file twice.
 - **CSV formula injection** *(Phase 4)*: exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`. Spreadsheet apps then show them as text instead of running them as formulas.
 - **Session caching:** GitHub data is cached in the session for 10 minutes, one entry per user (profile and repositories together), at most 30 entries, keeping only the fields that are needed. Looking at the same user again costs no API requests, and no database or server-side files are needed.
 - **Input whitelisting:**
@@ -154,6 +155,16 @@ php -S localhost:8000 -t public
 
 Then open <http://localhost:8000>. The `-t public` option makes `public/` the web root, so the browser can never request files from `includes/` or `config/`.
 
+### Or run it in Docker
+
+No local PHP needed, only Docker. From the project folder (on Windows PowerShell, use `${PWD}` instead of `$(pwd)`):
+
+```bash
+docker run --rm -p 8000:8000 -v "$(pwd):/app" -w /app php:8.5-cli php -S 0.0.0.0:8000 -t public
+```
+
+The official image already includes the `openssl`, `mbstring` and `fileinfo` extensions, and your edits show up straight away because the folder is mounted.
+
 ### Optional: GitHub token
 
 Without a token, GitHub allows 60 API requests per hour per IP address. With a token, it allows 5,000. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new). It needs no extra permissions, because RepoScope only reads public data. Then do one of these:
@@ -167,6 +178,8 @@ return ['github_token' => 'paste-your-token-here'];
 ```
 
 > **Windows tip:** in `php.ini`, enable `extension=openssl`, `extension=mbstring` and `extension=fileinfo`. Also set `openssl.cafile` to a CA certificate bundle such as [cacert.pem from curl.se](https://curl.se/docs/caextract.html). Without it, PHP can't verify GitHub's HTTPS certificate.
+
+> **Windows tip:** if PHP warns that "An Application Control policy has blocked" `php_openssl.dll`, Windows Smart App Control is blocking the unsigned extension, and every GitHub lookup fails with "Could not reach GitHub". Use the Docker command above instead.
 
 ## Running tests
 
@@ -191,7 +204,7 @@ RepoScope/
 ├── public/                    web root: the only folder the browser can reach
 │   ├── index.php              home page: pick a mode
 │   ├── profile.php            Profile mode
-│   ├── analyze.php            Analyze mode *
+│   ├── analyze.php            Analyze mode
 │   ├── compare.php            Compare mode *
 │   ├── export.php             CSV download *
 │   ├── js/charts.js           canvas chart functions
@@ -205,8 +218,8 @@ RepoScope/
 │   ├── helpers.php            escaping, validation, CSRF
 │   ├── layout.php             header, navigation, footer
 │   ├── github.php             GitHub API client and session cache
-│   ├── csv.php                upload validation, parsing, export *
-│   └── stats.php              chart-data builders (statistics and type detection *)
+│   ├── csv.php                upload validation and parsing (export *)
+│   └── stats.php              statistics, column type detection, chart-data builders
 ├── config/
 │   ├── config.php             limits and defaults
 │   └── config.local.php       your GitHub token (optional, git-ignored)
@@ -225,7 +238,7 @@ RepoScope/
 
 - [x] **Phase 1:** config, bootstrap (error handling, security headers, session), helpers, layout, home page, CSS theme
 - [x] **Phase 2:** GitHub API client with session cache, Profile mode, canvas charts
-- [ ] **Phase 3:** CSV upload and parsing, statistics, Analyze mode
+- [x] **Phase 3:** CSV upload and parsing, statistics, Analyze mode
 - [ ] **Phase 4:** Compare mode, CSV export with formula-injection protection
 - [ ] **Phase 5:** PHPUnit tests, GitHub Actions CI, Dockerfile, deployment
 
@@ -243,6 +256,11 @@ RepoScope/
 - A canvas needs its pixel buffer scaled by `devicePixelRatio`, or charts look blurry on high-DPI screens.
 - Tooltips on a canvas mean doing your own hit-testing: working out which bar, slice or point is under the pointer.
 - GitHub allows 60 unauthenticated requests per hour per IP address, shared with everything else on the same network, so caching and counting requests matter.
+- A file's extension is just part of its name. `fileinfo` checks what the bytes really are, and `is_uploaded_file()` proves PHP received the file in this request.
+- When a request is bigger than `post_max_size`, PHP silently empties `$_POST` and `$_FILES`, so "file too big" has to be detected from `CONTENT_LENGTH`.
+- Post/Redirect/Get: answering a form POST with a redirect stops the browser from re-sending it on refresh.
+- Excel saves "CSV" in Windows-1252 and "CSV UTF-8" with a byte order mark, so a parser has to handle both.
+- "1,234" and "1,23" look alike, but only correctly grouped commas are thousands separators.
 
 ## License
 

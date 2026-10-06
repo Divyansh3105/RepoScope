@@ -251,7 +251,7 @@ main > .section { margin-top: var(--space-7); }
 
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-5) var(--space-6); }
 .page-head p { margin-top: var(--space-2); max-width: 60ch; color: var(--ink-2); }
-.page-head .search { flex: 1 1 320px; max-width: 460px; }
+.page-head .search { flex: 1 1 320px; min-width: 0; max-width: 460px; } /* min-width: 0 lets the file field shrink on phones */
 
 .muted { color: var(--muted); }
 
@@ -317,9 +317,29 @@ input[type="text"], select {
     caret-color: var(--signal);
     transition: border-color 150ms ease-out;
 }
-input[type="text"]:hover { border-color: #5c5c5c; }
-input[type="text"]:focus-visible { outline-offset: 1px; border-color: var(--signal); }
+input[type="text"]:hover, select:hover, input[type="file"]:hover { border-color: #5c5c5c; }
+input[type="text"]:focus-visible, select:focus-visible { outline-offset: 1px; border-color: var(--signal); }
 input::placeholder { color: var(--muted); }
+
+/* File field (Analyze): the same dark field, with the browser's "Choose file" button as a small plate.
+   4px of padding and a 2px inner radius keep the corners concentric with the field's 6px. */
+input[type="file"] {
+    min-height: 44px; padding: 4px;
+    border: 1px solid var(--rule-strong); border-radius: var(--radius-plate);
+    background: #0c0c0c; color: var(--ink-2); font: inherit; font-size: var(--text-sm);
+    transition: border-color 150ms ease-out;
+}
+input[type="file"]::file-selector-button {
+    min-height: 34px; margin-right: var(--space-3); padding-inline: var(--space-3);
+    border: 0; border-radius: 2px;
+    background: var(--panel-2); color: var(--ink); font: inherit; font-weight: 600;
+    cursor: pointer; transition: background-color 150ms ease-out;
+}
+input[type="file"]::file-selector-button:hover { background: #333333; }
+
+/* Chart form (Analyze): the fields share a row on wide screens and stack on phones. */
+.builder { display: grid; gap: var(--space-3) var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); align-items: end; }
+.builder select { width: 100%; }
 
 /* A field the server rejected: red outline, plus one transitions.dev error shake when the page arrives. */
 input[aria-invalid="true"] {
@@ -603,11 +623,15 @@ tbody tr:hover { background: oklch(1 0 0 / 0.03); }
 tbody tr:last-child td { border-bottom: 0; }
 .num { text-align: right; font-variant-numeric: tabular-nums; } /* digits line up down the column */
 .cell-line { display: inline-flex; align-items: center; gap: var(--space-2); }
+.cell-wrap { display: block; min-width: 24ch; max-width: 70ch; white-space: normal; } /* long text wraps instead of widening the table */
+
+.rules { margin: 0; padding-left: 1.25em; color: var(--ink-2); }
+.rules li + li { margin-top: var(--space-2); }
 
 /* ---- 13. Reduced motion -------------------------------------------------------------------- */
 /* Movement goes; the static cues (colour, labels, the open table) stay. */
 @media (prefers-reduced-motion: reduce) {
-    .chart-tooltip, .t-text-swap, .chevron, .t-learn-chevron, .t-learn-arm, .map-line, .map-bullet, .chip,
+    .chart-tooltip, .t-text-swap, .chevron, input[type="file"]::file-selector-button, .t-learn-chevron, .t-learn-arm, .map-line, .map-bullet, .chip,
     .chart-data::details-content { transition: none !important; }
     .t-shimmer::before, input[aria-invalid="true"] { animation: none !important; }
     .btn:active, .chip:active { scale: 1; }
