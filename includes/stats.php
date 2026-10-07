@@ -178,3 +178,33 @@ function chart_group(array $table, int $groupCol, int $valueCol, string $calc, s
     }
     return ['title' => $title, 'labels' => array_map('strval', array_keys($sums)), 'values' => $values];
 }
+
+/**
+ * Statistics for the number columns as a table (the one table shape), one row per column.
+ * Count is how many cells hold a number; Skipped is the rest (empty, or not a number).
+ */
+function number_summary(array $table, array $numberCols): array
+{
+    $summary = ['headers' => ['Column', 'Count', 'Skipped', 'Sum', 'Min', 'Max', 'Mean', 'Median'], 'rows' => []];
+    foreach ($numberCols as $col) {
+        $stats = number_stats(column_numbers($table, $col));
+        $summary['rows'][] = [$table['headers'][$col], $stats['count'], count($table['rows']) - $stats['count'],
+            $stats['sum'], $stats['min'], $stats['max'], $stats['mean'], $stats['median']];
+    }
+    return $summary;
+}
+
+/** The text columns as a table: filled and empty cells, how many different values, and the 10 most common. */
+function text_summary(array $table, array $textCols): array
+{
+    $summary = ['headers' => ['Column', 'Count', 'Empty', 'Unique', 'Most common (up to 10)'], 'rows' => []];
+    foreach ($textCols as $col) {
+        $counts = chart_count($table, $col, '');
+        $filled = array_sum($counts['values']);
+        $top = array_map(fn(string $value, int $n): string => "{$value} ({$n})",
+            array_slice($counts['labels'], 0, 10), array_slice($counts['values'], 0, 10));
+        $summary['rows'][] = [$table['headers'][$col], $filled, count($table['rows']) - $filled,
+            count($counts['labels']), implode(' · ', $top)];
+    }
+    return $summary;
+}

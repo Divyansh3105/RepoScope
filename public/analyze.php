@@ -60,29 +60,20 @@ if ($dataset !== null) {
     $textCols = array_keys($types, 'text');
 
     // The statistics are tables too (the one table shape), one row per column of the file.
-    $numberSummary = ['headers' => ['Column', 'Count', 'Skipped', 'Sum', 'Min', 'Max', 'Mean', 'Median'], 'rows' => []];
-    $measures = []; // number columns worth adding up: not IDs
-    foreach ($numberCols as $col) {
+    // export.php builds the same two tables, so the downloads match what is shown here.
+    $numberSummary = number_summary($table, $numberCols);
+    $textSummary = text_summary($table, $textCols);
+
+    // Number columns worth adding up. An ID column (whole numbers, all different) never is.
+    $measures = array_values(array_filter($numberCols, function (int $col) use ($table): bool {
         $numbers = column_numbers($table, $col);
-        // An ID column (whole numbers, all different) is never the default thing to add up.
-        if (count(array_filter($numbers, 'is_int')) < count($numbers) || count(array_unique($numbers)) < count($numbers)) {
-            $measures[] = $col;
-        }
-        $stats = number_stats($numbers);
-        $numberSummary['rows'][] = [$headers[$col], $stats['count'], $rowCount - $stats['count'], $stats['sum'],
-            $stats['min'], $stats['max'], $stats['mean'], $stats['median']];
-    }
-    $textSummary = ['headers' => ['Column', 'Count', 'Empty', 'Unique', 'Most common (up to 10)'], 'rows' => []];
+        return count(array_filter($numbers, 'is_int')) < count($numbers) || count(array_unique($numbers)) < count($numbers);
+    }));
     $groupable = []; // text column => how many different values it has, when that is 2 or more
-    foreach ($textCols as $col) {
-        $counts = chart_count($table, $col, '');
-        if (count($counts['labels']) >= 2) {
-            $groupable[$col] = count($counts['labels']);
+    foreach ($textSummary['rows'] as $i => $row) {
+        if ($row[3] >= 2) { // column 3 = Unique
+            $groupable[$textCols[$i]] = $row[3];
         }
-        $filled = array_sum($counts['values']);
-        $top = array_map(fn(string $value, int $n): string => "{$value} ({$n})",
-            array_slice($counts['labels'], 0, 10), array_slice($counts['values'], 0, 10));
-        $textSummary['rows'][] = [$headers[$col], $filled, $rowCount - $filled, count($counts['labels']), implode(' · ', $top)];
     }
 
     // The chart form. Every value is checked against a fixed list before it is used.
