@@ -165,7 +165,7 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 <?php endif; ?>
 
 <?php if ($dataset !== null): ?>
-    <!-- What was read and what was changed or left out (PRODUCT.md: honest numbers). -->
+    <!-- What was read and what was changed or left out (honest numbers). -->
     <ul class="status" aria-label="About this file">
         <li><?= e($dataset['name']) ?></li>
         <li><?= number_format($rowCount) ?> <?= $rowCount === 1 ? 'row' : 'rows' ?>, <?= count($headers) ?> <?= count($headers) === 1 ? 'column' : 'columns' ?></li>

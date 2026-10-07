@@ -51,7 +51,7 @@ Screenshots are added as each mode is finished.
 
 ## Design
 
-The interface follows one visual idea, **the transit line system**. Every page has a black sign band with a white rule, and actions sit on white sign plates. Each category (a programming language, a CSV value) is a "line" with its own coloured bullet, and line charts are drawn as routes with stations. The full system, with tokens, components and rules, is in [DESIGN.md](DESIGN.md), and the product context it serves is in [PRODUCT.md](PRODUCT.md).
+The interface follows one visual idea, **the transit line system**. Every page has a black sign band with a white rule, and actions sit on white sign plates. Each category (a programming language, a CSV value) is a "line" with its own coloured bullet, and line charts are drawn as routes with stations. Colours and fonts live as CSS custom properties at the top of [`public/css/style.css`](public/css/style.css).
 
 It was designed with four public guides:
 - [Impeccable](https://impeccable.style) for the direction and its quality floor.
@@ -226,8 +226,6 @@ RepoScope/
 ├── tests/                     PHPUnit tests *
 ├── .github/workflows/ci.yml   GitHub Actions workflow *
 ├── Dockerfile                 container image for Render *
-├── DESIGN.md                  design system: tokens, components, rules
-├── PRODUCT.md                 product context the design serves
 ├── LICENSE
 └── README.md
 ```

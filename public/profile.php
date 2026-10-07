@@ -133,7 +133,7 @@ render_header($result !== null ? $profile['login'] . ' · Profile' : 'Profile', 
         </dl>
     </section>
 
-    <!-- Where the numbers come from and their limits (PRODUCT.md: honest numbers). -->
+    <!-- Where the numbers come from and their limits (honest numbers). -->
     <ul class="status" aria-label="About this data">
         <li><?= $result['cached']
             ? 'Cached, fetched ' . ($minutesOld === 0 ? 'under a minute' : $minutesOld . ' min') . ' ago'
