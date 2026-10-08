@@ -97,7 +97,7 @@ render_header('Compare', 'compare');
     <div>
         <h1>Compare</h1>
         <p>Upload a CSV of up to <?= COMPARE_MAX_USERS ?> GitHub usernames to rank them and chart the whole group.
-            Start from the <a href="compare-template.csv" download>template file</a>.</p>
+            Try the <a href="samples/developers.csv" download>sample file</a>.</p>
     </div>
     <form class="search" action="compare.php" method="post" enctype="multipart/form-data" data-pending="Looking up...">
         <?= csrf_field() ?>
@@ -191,7 +191,7 @@ render_header('Compare', 'compare');
     <section class="panel">
         <h2>Start with a list of usernames</h2>
         <ul class="rules">
-            <li>Put the usernames in a column named <strong>username</strong>, or in the first column. The <a href="compare-template.csv" download>template file</a> shows the layout.</li>
+            <li>Put the usernames in a column named <strong>username</strong>, or in the first column. The <a href="samples/developers.csv" download>sample file</a> shows the layout.</li>
             <li>Up to <?= COMPARE_MAX_USERS ?> different users; a leading @ and repeated names are fine.</li>
             <li>Users looked up in the last <?= CACHE_TTL / 60 ?> minutes come from your session and cost no GitHub requests. Every other user costs 1 to <?= GITHUB_MAX_PAGES + 1 ?> of the requests GitHub allows each hour.</li>
             <li>If one user can't be loaded, the others still are, and the page says why.</li>

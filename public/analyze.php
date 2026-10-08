@@ -119,7 +119,8 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 <section class="page-head">
     <div>
         <h1>Analyze</h1>
-        <p>Upload any CSV file to see which columns hold numbers or text, their statistics, and a chart of the columns you pick.</p>
+        <p>Upload any CSV file to see which columns hold numbers or text, their statistics, and a chart of the columns you pick.
+            No file handy? Try the <a href="samples/sales.csv" download>sample sales data</a>.</p>
     </div>
     <form class="search" action="analyze.php" method="post" enctype="multipart/form-data" data-pending="Reading...">
         <?= csrf_field() ?>

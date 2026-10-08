@@ -13,8 +13,8 @@ RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of
 ## Features
 
 - **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (ranked horizontal bars, top 10) and a repository creation timeline (line).
-- **Compare mode**: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column; a [template](public/compare-template.csv) is included). You get a leaderboard ranked by stars (repositories, total stars, followers, number of languages), ranked bar charts for stars, followers and repositories, and a combined language chart for the group. A leading `@` and repeated names are fine. If one user fails, the rest still load and the page says why, and users already cached cost no API calls.
-- **Analyze mode**: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick a column to group by and a count, sum or average to draw a bar, line or pie chart, and preview the first 100 rows.
+- **Compare mode**: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column; see the [sample](public/samples/developers.csv)). You get a leaderboard ranked by stars (repositories, total stars, followers, number of languages), ranked bar charts for stars, followers and repositories, and a combined language chart for the group. A leading `@` and repeated names are fine. If one user fails, the rest still load and the page says why, and users already cached cost no API calls.
+- **Analyze mode**: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick a column to group by and a count, sum or average to draw a bar, line or pie chart, and preview the first 100 rows. A [sample sales file](public/samples/sales.csv) is included to try it.
 - **Export**: every result table has an "Export CSV" link: a profile's repositories, the Compare leaderboard, and Analyze's data and statistics tables. The file is generated on the fly from the session, opens correctly in Excel (UTF-8 with a byte order mark), and is protected against formula injection.
 - **Hand-written canvas charts**: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
 
@@ -209,7 +209,7 @@ RepoScope/
 │   ├── analyze.php            Analyze mode
 │   ├── compare.php            Compare mode
 │   ├── export.php             CSV download of any result table
-│   ├── compare-template.csv   example file for Compare mode
+│   ├── samples/               sample CSVs: sales.csv (Analyze), developers.csv (Compare)
 │   ├── js/charts.js           canvas chart functions
 │   ├── js/ui.js               form feedback ("Looking up…")
 │   ├── js/vendor/gsap.min.js  GSAP 3.15 (own licence, see below)

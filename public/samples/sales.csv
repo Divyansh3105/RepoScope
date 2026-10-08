@@ -1,0 +1,61 @@
+date,region,product,rep,revenue,units,unit_price
+2026-01-03,West,Backpack,Dev,72.00,3,24.0
+2026-01-04,North,Notebook,Meera,189.00,54,3.5
+2026-01-07,South,Notebook,Asha,210.00,60,3.5
+2026-01-08,North,Desk Lamp,Rohan,525.00,28,18.75
+2026-01-09,North,Stapler,Isha,185.60,29,6.4
+2026-01-10,North,Pen,Isha,50.40,42,1.2
+2026-01-13,South,Desk Lamp,Asha,93.75,5,18.75
+2026-01-16,West,Pen,Rohan,24.00,20,1.2
+2026-01-19,East,Notebook,Isha,133.00,38,3.5
+2026-01-22,South,Pen,Meera,9.60,8,1.2
+2026-01-23,North,Stapler,Isha,300.80,47,6.4
+2026-01-24,West,Stapler,Dev,96.00,15,6.4
+2026-01-27,East,Desk Lamp,Kabir,956.25,51,18.75
+2026-01-30,East,Desk Lamp,Rohan,468.75,25,18.75
+2026-01-31,East,Pen,Isha,8.40,7,1.2
+2026-02-02,West,Backpack,Meera,288.00,12,24.0
+2026-02-05,West,Notebook,Rohan,31.50,9,3.5
+2026-02-07,West,Pen,Asha,,N/A,1.2
+2026-02-10,East,Notebook,Meera,175.00,50,3.5
+2026-02-13,West,Backpack,Isha,240.00,10,24.0
+2026-02-15,North,Notebook,Meera,192.50,55,3.5
+2026-02-17,East,Notebook,Dev,17.50,5,3.5
+2026-02-20,West,Desk Lamp,Dev,375.00,20,18.75
+2026-02-22,East,Notebook,Rohan,108.50,31,3.5
+2026-02-25,North,Notebook,Rohan,115.50,33,3.5
+2026-02-27,South,Pen,Kabir,58.80,49,1.2
+2026-03-01,South,Desk Lamp,Kabir,131.25,7,18.75
+2026-03-03,South,Stapler,Kabir,121.60,19,6.4
+2026-03-06,West,Backpack,Meera,288.00,12,24.0
+2026-03-09,South,Desk Lamp,Asha,300.00,16,18.75
+2026-03-10,South,Pen,Asha,19.20,16,1.2
+2026-03-12,East,Stapler,Meera,83.20,13,6.4
+2026-03-13,East,Pen,Isha,33.60,28,1.2
+2026-03-16,North,Backpack,Kabir,72.00,3,24.0
+2026-03-19,West,Stapler,Kabir,172.80,27,6.4
+2026-03-21,West,Notebook,Asha,112.00,32,3.5
+2026-03-22,West,Notebook,Rohan,52.50,15,3.5
+2026-03-23,North,Backpack,Asha,240.00,10,24.0
+2026-03-24,North,Stapler,Meera,70.40,11,6.4
+2026-03-27,South,Notebook,Isha,21.00,6,3.5
+2026-03-29,East,Pen,Meera,50.40,42,1.2
+2026-04-01,North,Backpack,Asha,192.00,8,24.0
+2026-04-03,West,Desk Lamp,Meera,600.00,32,18.75
+2026-04-04,East,Pen,Dev,9.60,8,1.2
+2026-04-06,South,Desk Lamp,Isha,1031.25,55,18.75
+2026-04-07,East,Pen,Rohan,42.00,35,1.2
+2026-04-10,North,Stapler,Isha,384.00,60,6.4
+2026-04-12,East,Notebook,Isha,161.00,46,3.5
+2026-04-14,South,Pen,Isha,28.80,24,1.2
+2026-04-17,South,Stapler,Isha,147.20,23,6.4
+2026-04-18,West,Pen,Dev,64.80,54,1.2
+2026-04-19,West,Pen,Meera,42.00,35,1.2
+2026-04-22,East,Notebook,Kabir,10.50,3,3.5
+2026-04-24,East,Pen,Kabir,55.20,46,1.2
+2026-04-27,North,Backpack,Rohan,144.00,6,24.0
+2026-04-28,South,Pen,Meera,38.40,32,1.2
+2026-04-29,North,Desk Lamp,Kabir,768.75,41,18.75
+2026-05-02,North,Backpack,Dev,264.00,11,24.0
+2026-05-03,South,Desk Lamp,Kabir,975.00,52,18.75
+2026-05-04,East,Desk Lamp,Asha,975.00,52,18.75
