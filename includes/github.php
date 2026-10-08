@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /*
@@ -21,6 +22,14 @@ const GITHUB_UNREADABLE = 'GitHub sent a response RepoScope could not read. Plea
  */
 function github_get(string $path): array
 {
+    // Already out of requests until the reset time? Don't make the visitor wait for GitHub to say no.
+    // Compare mode needs this: once the limit is hit, the remaining users fail at once.
+    $rate = $_SESSION['github_rate'] ?? null;
+    if ($rate !== null && $rate['remaining'] === 0 && $rate['reset'] > time()) {
+        $headers = ['x-ratelimit-remaining' => '0', 'x-ratelimit-reset' => (string) $rate['reset']];
+        return ['error' => github_error_message(403, $headers, time()), 'status' => 403];
+    }
+
     $headers = [
         'User-Agent: RepoScope',               // GitHub rejects requests without a User-Agent
         'Accept: application/vnd.github+json',
@@ -220,4 +229,68 @@ function github_fetch_user(string $username): array
     $entry = ['profile' => $profile, 'repos' => $repos, 'fetched' => $now];
     $_SESSION['github_cache'] = cache_put($_SESSION['github_cache'] ?? [], $key, $entry, $now);
     return $entry + ['cached' => false];
+}
+
+/* ---------- Compare mode ---------- */
+
+/**
+ * The GitHub usernames in an uploaded Compare file, at most COMPARE_MAX_USERS.
+ * They come from the column named username (or user, login, github, handle), otherwise from the
+ * first column. A file with no such header is just a list, so its first row is a username too.
+ * A leading "@" is dropped, and the same name in different capitals counts once.
+ * Returns ['users' => [...], 'invalid' => cells that aren't usernames, 'total' => valid names found].
+ */
+function compare_usernames(array $table): array
+{
+    $col = null;
+    foreach ($table['headers'] as $i => $header) {
+        if (in_array(strtolower($header), ['username', 'user', 'login', 'github', 'handle'], true)) {
+            $col = $i;
+            break;
+        }
+    }
+    $cells = array_column($table['rows'], $col ?? 0);
+    // csv_parse() took the first row as headers. Without a username header that row is data,
+    // unless it isn't a username at all (an empty cell became "Column 1", or a title like "GitHub user").
+    if ($col === null && is_valid_username(ltrim($table['headers'][0], '@'))) {
+        array_unshift($cells, $table['headers'][0]);
+    }
+
+    $users = [];
+    $invalid = [];
+    foreach ($cells as $cell) {
+        $name = ltrim(trim((string) $cell), '@');
+        if ($name === '') {
+            continue;
+        }
+        if (!is_valid_username($name)) {
+            $invalid[] = mb_substr($name, 0, 40); // shortened: it is only shown in a note
+            continue;
+        }
+        $users[strtolower($name)] ??= $name; // keeps the first spelling of each name
+    }
+    return ['users' => array_slice(array_values($users), 0, COMPARE_MAX_USERS), 'invalid' => $invalid, 'total' => count($users)];
+}
+
+/**
+ * The leaderboard: one row per user from github_fetch_user() results, most stars first
+ * (then most followers). Forks are left out of every number, as on the Profile page.
+ */
+function compare_table(array $entries): array
+{
+    $rows = [];
+    foreach ($entries as $entry) {
+        $repos = repos_table($entry['repos'])['rows']; // [name, language, stars, forks, created], no forks
+        $languages = array_unique(array_filter(array_column($repos, 1), fn(string $language): bool => $language !== ''));
+        $rows[] = [
+            $entry['profile']['login'],
+            count($repos),
+            array_sum(array_column($repos, 2)),
+            $entry['profile']['followers'],
+            count($languages)
+        ];
+    }
+    usort($rows, fn(array $a, array $b): int => [$b[2], $b[3]] <=> [$a[2], $a[3]]); // arrays compare item by item
+    $ranked = array_map(fn(int $i, array $row): array => [$i + 1, ...$row], array_keys($rows), $rows);
+    return ['headers' => ['Rank', 'User', 'Repositories', 'Stars', 'Followers', 'Languages'], 'rows' => $ranked];
 }
