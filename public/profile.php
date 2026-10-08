@@ -152,7 +152,7 @@ render_header($result !== null ? $profile['login'] . ' · Profile' : 'Profile', 
     <!-- data-animate: the charts draw themselves in only when the data just arrived from GitHub. -->
     <section class="chart-grid" aria-label="Charts"<?= $result['cached'] ? '' : ' data-animate' ?>>
         <?php render_chart('pie', $languages, ['Language', 'Repositories'],
-            note: 'Each repository counted once, by its main language.'); ?>
+            note: 'Each repository counted once, by its main language. Repositories without one are left out.'); ?>
         <?php render_chart('hbar', $topStars, ['Repository', 'Stars'],
             note: 'Up to 10 repositories with the most stars.'); ?>
         <?php render_chart('line', $timeline, ['Year', 'Repositories created'], 'chart-wide',
