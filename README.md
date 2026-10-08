@@ -8,14 +8,14 @@
 
 RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks or a database, to show what core PHP can do on its own; the only library is a self-hosted GSAP file for chart animation.
 
-> **Status: work in progress.** Phases 1 to 3 of 5 are done: security foundations, layout and theme, the GitHub client, Profile mode and Analyze mode. Features marked *(Phase N)* below are still being built. See the [roadmap](#roadmap).
+> **Status: work in progress.** Phases 1 to 4 of 5 are done: security foundations, layout and theme, the GitHub client, Profile, Analyze and Compare modes, and CSV export. Tests and deployment *(Phase 5)* are still being built. See the [roadmap](#roadmap).
 
 ## Features
 
 - **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (ranked horizontal bars, top 10) and a repository creation timeline (line).
-- **Compare mode** *(Phase 4)*: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column). You get a leaderboard (repositories, total stars, followers, number of languages), side-by-side bar charts and a combined language chart for the group. If one user fails, the rest still load, and users already cached cost no API calls.
+- **Compare mode**: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column; a [template](public/compare-template.csv) is included). You get a leaderboard ranked by stars (repositories, total stars, followers, number of languages), ranked bar charts for stars, followers and repositories, and a combined language chart for the group. A leading `@` and repeated names are fine. If one user fails, the rest still load and the page says why, and users already cached cost no API calls.
 - **Analyze mode**: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick a column to group by and a count, sum or average to draw a bar, line or pie chart, and preview the first 100 rows.
-- **Export** *(Phase 4)*: download any result table as a CSV file, generated on the fly.
+- **Export**: every result table has an "Export CSV" link: a profile's repositories, the Compare leaderboard, and Analyze's data and statistics tables. The file is generated on the fly from the session, opens correctly in Excel (UTF-8 with a byte order mark), and is protected against formula injection.
 - **Hand-written canvas charts**: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
 
 ## Screenshots
@@ -131,8 +131,9 @@ GitHub data and CSV uploads both end up in this shape, so one set of statistics 
   - Files are read straight from PHP's temporary upload location and never moved or stored.
   - Parsing stops at 5,000 rows and 50 columns. Files saved by Excel in Windows-1252 are converted to UTF-8.
   - After an upload the page redirects (Post/Redirect/Get), so refreshing never sends the file twice.
-- **CSV formula injection** *(Phase 4)*: exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`. Spreadsheet apps then show them as text instead of running them as formulas.
-- **Session caching:** GitHub data is cached in the session for 10 minutes, one entry per user (profile and repositories together), at most 30 entries, keeping only the fields that are needed. Looking at the same user again costs no API requests, and no database or server-side files are needed.
+- **CSV formula injection:** exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`. Spreadsheet apps then show them as text instead of running them as formulas. Real numbers such as `-3.5` are left alone, since a spreadsheet never reads them as formulas.
+- **Safe exports:** `export.php` only sends tables already in the visitor's own session, picked from a fixed list of names. Nothing from the URL becomes a file path, and the download file name is built from checked characters only.
+- **Session caching:** GitHub data is cached in the session for 10 minutes, one entry per user (profile and repositories together), at most 30 entries, keeping only the fields that are needed. Looking at the same user again costs no API requests, and no database or server-side files are needed. Once GitHub reports the hourly limit used up, RepoScope stops asking until the reset time, so a Compare upload fails fast instead of waiting on every user.
 - **Input whitelisting:**
   - Chart types, column numbers and modes are checked against fixed lists.
   - Usernames are checked against GitHub's rules: 1 to 39 characters, letters, digits and single hyphens.
@@ -205,8 +206,9 @@ RepoScope/
 │   ├── index.php              home page: pick a mode
 │   ├── profile.php            Profile mode
 │   ├── analyze.php            Analyze mode
-│   ├── compare.php            Compare mode *
-│   ├── export.php             CSV download *
+│   ├── compare.php            Compare mode
+│   ├── export.php             CSV download of any result table
+│   ├── compare-template.csv   example file for Compare mode
 │   ├── js/charts.js           canvas chart functions
 │   ├── js/ui.js               form feedback ("Looking up…")
 │   ├── js/vendor/gsap.min.js  GSAP 3.15 (own licence, see below)
@@ -217,8 +219,8 @@ RepoScope/
 │   ├── bootstrap.php          error handling, security headers, session
 │   ├── helpers.php            escaping, validation, CSRF
 │   ├── layout.php             header, navigation, footer
-│   ├── github.php             GitHub API client and session cache
-│   ├── csv.php                upload validation and parsing (export *)
+│   ├── github.php             GitHub API client, session cache, Compare leaderboard
+│   ├── csv.php                upload validation, parsing and safe CSV writing
 │   └── stats.php              statistics, column type detection, chart-data builders
 ├── config/
 │   ├── config.php             limits and defaults
@@ -237,7 +239,7 @@ RepoScope/
 - [x] **Phase 1:** config, bootstrap (error handling, security headers, session), helpers, layout, home page, CSS theme
 - [x] **Phase 2:** GitHub API client with session cache, Profile mode, canvas charts
 - [x] **Phase 3:** CSV upload and parsing, statistics, Analyze mode
-- [ ] **Phase 4:** Compare mode, CSV export with formula-injection protection
+- [x] **Phase 4:** Compare mode, CSV export with formula-injection protection
 - [ ] **Phase 5:** PHPUnit tests, GitHub Actions CI, Dockerfile, deployment
 
 ## What I learned
@@ -259,6 +261,9 @@ RepoScope/
 - Post/Redirect/Get: answering a form POST with a redirect stops the browser from re-sending it on refresh.
 - Excel saves "CSV" in Windows-1252 and "CSV UTF-8" with a byte order mark, so a parser has to handle both.
 - "1,234" and "1,23" look alike, but only correctly grouped commas are thousands separators.
+- CSV formula injection: a cell like `=HYPERLINK(...)` in an exported file runs as a formula when someone opens it in a spreadsheet, so exports have to defuse it.
+- A download is just a response with the right headers: `Content-Type: text/csv` and `Content-Disposition: attachment` make the browser save it, and `php://output` streams it without a temporary file.
+- Excel only reads a CSV as UTF-8 when it starts with a byte order mark.
 
 ## License
 
