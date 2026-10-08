@@ -11,6 +11,8 @@ declare(strict_types=1);
  *
  * SECURITY: the file is read straight from PHP's temporary upload folder and never moved
  * or saved. PHP deletes that temporary file by itself when the request ends.
+ *
+ * The way back, a table to a CSV download (export.php), is csv_write() at the end of this file.
  */
 
 // A constant expression: PHP works out "2" from the setting in config.php once, at compile time.
@@ -137,4 +139,31 @@ function csv_parse(string $text): array
         $notes[] = 'Only the first ' . number_format(CSV_MAX_ROWS) . ' rows were read';
     }
     return ['table' => ['headers' => $headers, 'rows' => $rows], 'notes' => $notes];
+}
+
+/**
+ * Makes one cell safe to open in a spreadsheet app.
+ *
+ * SECURITY (CSV formula injection): Excel, LibreOffice and Google Sheets run a cell that starts
+ * with = + - or @ as a formula, and a tab or carriage return can hide such a start. A repository
+ * named "=HYPERLINK(...)" or a crafted CSV cell could then do harm on the machine of whoever opens
+ * the export. A leading ' makes the app show the cell as plain text instead.
+ * Numbers such as -3.5 are left alone: a spreadsheet reads them as numbers, never as formulas.
+ */
+function csv_safe_cell(mixed $value): string
+{
+    $text = (string) $value; // null becomes '', 2.5 becomes "2.5"
+    if (is_int($value) || is_float($value) || is_numeric($text)) {
+        return $text;
+    }
+    return $text !== '' && str_contains("=+-@\t\r", $text[0]) ? "'" . $text : $text;
+}
+
+/** Writes a table (headers first, then every row) as CSV to an open stream, every cell made safe. */
+function csv_write(array $table, mixed $stream): void
+{
+    foreach ([$table['headers'], ...$table['rows']] as $row) {
+        // escape '' writes plain RFC 4180 CSV, the same rule csv_parse() reads with.
+        fputcsv($stream, array_map('csv_safe_cell', $row), ',', '"', '');
+    }
 }

@@ -160,7 +160,10 @@ render_header($result !== null ? $profile['login'] . ' · Profile' : 'Profile', 
     </section>
 
     <section class="panel">
-        <h2>Repositories <span class="muted">(<?= count($table['rows']) ?>)</span></h2>
+        <div class="panel-head">
+            <h2>Repositories <span class="muted">(<?= count($table['rows']) ?>)</span></h2>
+            <?= export_link('table=profile&user=' . rawurlencode($profile['login']), 'repositories') ?>
+        </div>
         <?php render_table($table, [$col['Language'] => $languageCell]); ?>
     </section>
 <?php elseif ($error === ''): ?>

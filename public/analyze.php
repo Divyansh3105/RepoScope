@@ -210,7 +210,10 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 
     <?php if ($numberCols !== []): ?>
         <section class="panel">
-            <h2>Number columns <span class="muted">(<?= count($numberCols) ?>)</span></h2>
+            <div class="panel-head">
+                <h2>Number columns <span class="muted">(<?= count($numberCols) ?>)</span></h2>
+                <?= export_link('table=analyze-numbers', 'number columns') ?>
+            </div>
             <p class="chart-note">Count is how many cells hold a number. Skipped cells were empty or not a number.</p>
             <?php render_table($numberSummary); ?>
         </section>
@@ -218,14 +221,20 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 
     <?php if ($textCols !== []): ?>
         <section class="panel">
-            <h2>Text columns <span class="muted">(<?= count($textCols) ?>)</span></h2>
+            <div class="panel-head">
+                <h2>Text columns <span class="muted">(<?= count($textCols) ?>)</span></h2>
+                <?= export_link('table=analyze-text', 'text columns') ?>
+            </div>
             <p class="chart-note">Count is how many cells are filled in. The most common values show how often each appears.</p>
             <?php render_table($textSummary, [4 => $wrap]); ?>
         </section>
     <?php endif; ?>
 
     <section class="panel">
-        <h2>Data <span class="muted">(<?= $rowCount > $previewRows ? "first {$previewRows} of " . number_format($rowCount) . ' rows' : $rowCount . ($rowCount === 1 ? ' row' : ' rows') ?>)</span></h2>
+        <div class="panel-head">
+            <h2>Data <span class="muted">(<?= $rowCount > $previewRows ? "first {$previewRows} of " . number_format($rowCount) . ' rows' : $rowCount . ($rowCount === 1 ? ' row' : ' rows') ?>)</span></h2>
+            <?= export_link('table=analyze', 'all rows') ?>
+        </div>
         <?php render_table(['headers' => $headers, 'rows' => array_slice($table['rows'], 0, $previewRows)], numeric: $isNumber); ?>
     </section>
 <?php elseif ($error === ''): ?>

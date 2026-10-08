@@ -192,6 +192,15 @@ function render_chart(string $type, array $chart, array $columns, string $extraC
     <?php
 }
 
+/**
+ * An "Export CSV" link to export.php for one result table. $what names the table for screen
+ * readers, which otherwise hear several identical "Export CSV" links on one page.
+ */
+function export_link(string $query, string $what): string
+{
+    return '<a class="export" href="export.php?' . e($query) . '" aria-label="Export CSV, ' . e($what) . '">Export CSV</a>';
+}
+
 /** Prints the bottom of every page. */
 function render_footer(): void
 {
