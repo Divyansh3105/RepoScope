@@ -1,19 +1,16 @@
 <?php
+
 declare(strict_types=1);
 
 require __DIR__ . '/../includes/bootstrap.php';
 
-/*
- * Compare mode. Two requests, like Analyze:
- *   POST (the upload form)   read the usernames from the CSV, look every user up (the session
- *                            cache first), keep the leaderboard in the session, then redirect.
- *   GET  (everything else)   show the leaderboard and the group's charts from the session.
- */
+// Compare: POST takes a CSV of usernames, looks each one up and stores the leaderboard
+// in the session, then redirects. GET renders it.
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($_POST === [] && $_FILES === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-        $error = CSV_TOO_BIG; // bigger than post_max_size: PHP threw the whole request away
+        $error = CSV_TOO_BIG; // over post_max_size
     } elseif (!csrf_is_valid($_POST['csrf_token'] ?? null)) {
         $error = 'This form expired. Please choose the file and upload it again.';
     } else {
@@ -31,8 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '') {
-        // One user at a time. A user who fails (not found, rate limit…) is listed with the reason
-        // and the rest still load. Users looked up in the last 10 minutes cost no API requests.
+        // a failed user doesn't stop the rest; cached users cost no requests
         $entries = [];
         $failed = [];
         foreach ($names['users'] as $username) {
@@ -50,26 +46,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $invalid = count($names['invalid']);
         if ($invalid > 0) {
-            $notes[] = $invalid . ($invalid === 1 ? ' cell isn’t a username' : ' cells aren’t usernames') . ' and '
+            $notes[] = $invalid . ($invalid === 1 ? " cell isn't a username" : " cells aren't usernames") . ' and '
                 . ($invalid === 1 ? 'was' : 'were') . ' skipped: ' . implode(', ', array_slice($names['invalid'], 0, 5))
-                . ($invalid > 5 ? '…' : '');
+                . ($invalid > 5 ? '...' : '');
         }
         $cached = count(array_filter(array_column($entries, 'cached')));
 
         $_SESSION['compare'] = [
-            'name'      => mb_substr(basename((string) $_FILES['csv']['name']), 0, 100), // shown escaped, never used as a path
+            'name'      => mb_substr(basename((string) $_FILES['csv']['name']), 0, 100),
             'table'     => compare_table($entries),
-            // Every repository of the group in one table (forks left out), counted by main language.
+            // all of the group's repos together, by language (column 1 of repos_table)
             'languages' => chart_count(repos_table(array_merge(...array_column($entries, 'repos'))), 1, 'Languages across the group'),
             'failed'    => $failed,
             'notes'     => $notes,
             'cached'    => $cached,
             'fetched'   => count($entries) - $cached,
         ];
-        // The charts draw themselves in on the next view, but only when new data came from GitHub.
+        // only animate when something new came from GitHub
         $_SESSION['compare_fresh'] = count($entries) > $cached;
 
-        header('Location: compare.php', true, 303); // Post/Redirect/Get, as in Analyze
+        header('Location: compare.php', true, 303);
         exit;
     }
     http_response_code(400);
@@ -80,21 +76,19 @@ $fresh = !empty($_SESSION['compare_fresh']);
 unset($_SESSION['compare_fresh']);
 $rate = $_SESSION['github_rate'] ?? null;
 
-// Everything that touches the session is done: release its lock before printing the page.
 session_write_close();
 
 if ($compare !== null) {
     $table = $compare['table'];
-    $col = array_flip($table['headers']); // column name => position, e.g. $col['Stars'] is 3
+    $col = array_flip($table['headers']);
     $users = count($table['rows']);
 
     $stars = chart_top($table, $col['User'], $col['Stars'], COMPARE_MAX_USERS, 'Stars');
     $followers = chart_top($table, $col['User'], $col['Followers'], COMPARE_MAX_USERS, 'Followers');
     $repos = chart_top($table, $col['User'], $col['Repositories'], COMPARE_MAX_USERS, 'Repositories');
 
-    // Each user links to their Profile page, which reads the same cache entry: no extra API request.
     $userCell = fn(mixed $login): string =>
-        '<a href="profile.php?user=' . e(rawurlencode((string) $login)) . '">' . e((string) $login) . '</a>';
+    '<a href="profile.php?user=' . e(rawurlencode((string) $login)) . '">' . e((string) $login) . '</a>';
 }
 
 render_header('Compare', 'compare');
@@ -105,12 +99,12 @@ render_header('Compare', 'compare');
         <p>Upload a CSV of up to <?= COMPARE_MAX_USERS ?> GitHub usernames to rank them and chart the whole group.
             Start from the <a href="compare-template.csv" download>template file</a>.</p>
     </div>
-    <form class="search" action="compare.php" method="post" enctype="multipart/form-data" data-pending="Looking up…">
+    <form class="search" action="compare.php" method="post" enctype="multipart/form-data" data-pending="Looking up...">
         <?= csrf_field() ?>
         <label for="csv">Usernames CSV <span class="muted">(up to <?= COMPARE_MAX_USERS ?> users)</span></label>
         <div class="field-row">
             <input id="csv" name="csv" type="file" accept=".csv,text/csv" required
-                   <?= $error !== '' ? 'aria-invalid="true" aria-describedby="upload-error"' : '' ?>>
+                <?= $error !== '' ? 'aria-invalid="true" aria-describedby="upload-error"' : '' ?>>
             <button class="btn" type="submit"><span class="t-text-swap">Compare</span></button>
         </div>
     </form>
@@ -119,14 +113,14 @@ render_header('Compare', 'compare');
 <?php if ($error !== ''): ?>
     <div class="alert" id="upload-error" role="alert">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8"/><path d="M10 6v5M10 14h.01"/>
+            <circle cx="10" cy="10" r="8" />
+            <path d="M10 6v5M10 14h.01" />
         </svg>
         <p><strong>Error:</strong> <?= e($error) ?></p>
     </div>
 <?php endif; ?>
 
 <?php if ($compare !== null): ?>
-    <!-- Where the numbers come from and their limits (honest numbers). -->
     <ul class="status" aria-label="About this comparison">
         <li><?= e($compare['name']) ?></li>
         <li><?= $users ?> <?= $users === 1 ? 'user' : 'users' ?> compared</li>
@@ -166,16 +160,31 @@ render_header('Compare', 'compare');
             <?php render_table($table, [$col['User'] => $userCell]); ?>
         </section>
 
-        <!-- data-animate: the charts draw themselves in only when new data just arrived from GitHub. -->
         <section class="chart-grid" aria-label="Charts"<?= $fresh ? ' data-animate' : '' ?>>
-            <?php render_chart('hbar', $stars, ['User', 'Stars'],
-                note: 'Stars across each user’s own repositories. Users with none are left out.'); ?>
-            <?php render_chart('hbar', $followers, ['User', 'Followers'],
-                note: 'Followers on GitHub. Users with none are left out.'); ?>
-            <?php render_chart('hbar', $repos, ['User', 'Repositories'],
-                note: 'Each user’s own public repositories, forks left out.'); ?>
-            <?php render_chart('pie', $compare['languages'], ['Language', 'Repositories'],
-                note: 'Every repository in the group counted once, by its main language. Repositories without one are left out.'); ?>
+            <?php render_chart(
+                'hbar',
+                $stars,
+                ['User', 'Stars'],
+                note: "Stars across each user's own repositories. Users with none are left out."
+            ); ?>
+            <?php render_chart(
+                'hbar',
+                $followers,
+                ['User', 'Followers'],
+                note: 'Followers on GitHub. Users with none are left out.'
+            ); ?>
+            <?php render_chart(
+                'hbar',
+                $repos,
+                ['User', 'Repositories'],
+                note: "Each user's own public repositories, forks left out."
+            ); ?>
+            <?php render_chart(
+                'pie',
+                $compare['languages'],
+                ['Language', 'Repositories'],
+                note: 'Every repository in the group counted once, by its main language. Repositories without one are left out.'
+            ); ?>
         </section>
     <?php endif; ?>
 <?php elseif ($error === ''): ?>
@@ -185,7 +194,7 @@ render_header('Compare', 'compare');
             <li>Put the usernames in a column named <strong>username</strong>, or in the first column. The <a href="compare-template.csv" download>template file</a> shows the layout.</li>
             <li>Up to <?= COMPARE_MAX_USERS ?> different users; a leading @ and repeated names are fine.</li>
             <li>Users looked up in the last <?= CACHE_TTL / 60 ?> minutes come from your session and cost no GitHub requests. Every other user costs 1 to <?= GITHUB_MAX_PAGES + 1 ?> of the requests GitHub allows each hour.</li>
-            <li>If one user can’t be loaded, the others still are, and the page says why.</li>
+            <li>If one user can't be loaded, the others still are, and the page says why.</li>
         </ul>
     </section>
 <?php endif; ?>

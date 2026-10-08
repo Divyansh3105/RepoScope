@@ -1,22 +1,5 @@
-/* ==========================================================================
-   RepoScope theme: "Transit line system" (plain CSS, no frameworks)
-
-   The world is modern transit signage: a black sign band with a white rule,
-   white sign-plate buttons, signal yellow for focus and selection (like a
-   platform edge), and a circular line bullet for every category. Charts read
-   their colours from the --chart-* variables below (js/charts.js), so the
-   whole theme lives in this file.
-
-   Built with Impeccable (direction and craft floor), transitions.dev (motion
-   tokens and recipes), make-interfaces-feel-better (details) and the GSAP
-   skills (chart motion, in js/charts.js).
-   ========================================================================== */
-
-/* ---- 0. Typeface ----------------------------------------------------------- */
-/* Hanken Grotesk: an open-licence grotesque in the signage tradition (OFL, see fonts/OFL.txt).
-   Self-hosted variable fonts, weights 400-700. Each file covers one alphabet range, so the
-   browser only downloads latin-ext when a page contains those letters. font-display: swap
-   shows the fallback font at once instead of invisible text while the file loads. */
+/* typeface */
+/* Hanken Grotesk, self-hosted (OFL, see fonts/OFL.txt). latin-ext only loads when needed. */
 @font-face {
   font-family: "Hanken Grotesk";
   src: url("../fonts/hanken-grotesk-latin.woff2") format("woff2");
@@ -38,43 +21,42 @@
     U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* ---- 1. Tokens ------------------------------------------------------------ */
+/* tokens */
 :root {
-  color-scheme: dark; /* dark scrollbars and native form controls */
-  interpolate-size: allow-keywords; /* lets <details> animate to its natural height where supported */
+  color-scheme: dark;
+  interpolate-size: allow-keywords;
 
-  /* Surfaces */
-  --sign: #000000; /* the sign band */
-  --ground: #111111; /* page */
-  --panel: #1a1a1a; /* panels and chart backgrounds */
-  --panel-2: #232323; /* table headers */
-  --rule: #2c2c2c; /* hairline dividers */
-  --rule-strong: #4a4a4a; /* input outlines (3:1 against the field) */
-  --ring: 0 0 0 1px oklch(1 0 0 / 0.08); /* panel edge: a shadow ring, not a border */
+  /* surfaces */
+  --sign: #000000;
+  --ground: #111111;
+  --panel: #1a1a1a;
+  --panel-2: #232323;
+  --rule: #2c2c2c;
+  --rule-strong: #4a4a4a; /* 3:1 against inputs */
+  --ring: 0 0 0 1px oklch(1 0 0 / 0.08);
 
-  /* Ink */
-  --ink: #f4f4f1; /* sign white */
-  --ink-2: #b9b9b3; /* secondary text */
-  --muted: #8f8f89; /* metadata: 5.3:1 on --panel */
+  /* text */
+  --ink: #f4f4f1;
+  --ink-2: #b9b9b3;
+  --muted: #8f8f89; /* 5.3:1 on --panel */
 
-  /* Plates and signals */
-  --plate: #f4f4f1; /* white sign plate: primary buttons, tooltip, current page */
+  /* buttons, focus, errors */
+  --plate: #f4f4f1;
   --plate-hover: #ffffff;
   --plate-ink: #0b0b0b;
-  --signal: #fccc0a; /* focus and selection: the yellow platform edge */
+  --signal: #fccc0a;
   --danger: #ee352e;
 
-  /* Lines: the chart palette, also used by every line bullet. Fixed order,
-       checked with a colour-blindness validator against --panel. */
-  --chart-1: #3987e5; /* blue */
-  --chart-2: #d95926; /* orange */
-  --chart-3: #199e70; /* aqua */
-  --chart-4: #c98500; /* yellow */
-  --chart-5: #d55181; /* magenta */
-  --chart-6: #008300; /* green */
-  --chart-7: #9085e9; /* violet */
-  --chart-8: #e66767; /* red */
-  --chart-other: #6b7380; /* "Other": a neutral grey, never a ninth colour */
+  /* chart / bullet palette, checked for colour-blind contrast against --panel */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --chart-other: #6b7380; /* "Other" */
   --chart-grid: #262626;
   --chart-axis: #3d3d3d;
   --chart-text: #8f8f89;
@@ -83,22 +65,22 @@
     255,
     255,
     0.22
-  ); /* laid over the hovered bar to lighten it */
+  ); /* hover overlay */
 
-  /* Type: one family, the signage grotesque, on a fixed rem scale (about 1.2 between steps) */
+  /* type scale */
   --font:
     "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  --text-xs: 0.8125rem; /* 13px: labels, metadata */
-  --text-sm: 0.875rem; /* 14px: tables, buttons, secondary text */
-  --text-md: 1rem; /* 16px: body */
-  --text-lg: 1.1875rem; /* 19px: section titles */
-  --text-xl: 1.4375rem; /* 23px: the profile's name */
-  --text-2xl: 1.75rem; /* 28px: figures */
-  --text-3xl: 2.125rem; /* 34px: page titles */
-  --text-4xl: 2.625rem; /* 42px: the home page title */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.4375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.125rem;
+  --text-4xl: 2.625rem;
 
-  /* Space: a 4px scale */
+  /* spacing (4px steps) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -108,12 +90,10 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* Shape. Panels use 24px padding, so their radius is chosen on its own
-       (make-interfaces: concentric maths only matters below 24px of padding). */
   --radius-plate: 6px;
   --radius-panel: 12px;
 
-  /* Motion tokens (transitions.dev) */
+  /* motion */
   --duration-stagger: 40ms;
   --duration-micro: 80ms;
   --duration-quick: 150ms;
@@ -121,8 +101,7 @@
   --duration-very-slow: 500ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* transitions.dev recipe variables */
-  --tt-in-dur: 150ms; /* tooltip */
+  --tt-in-dur: 150ms;
   --tt-out-dur: 50ms;
   --tt-scale: 0.98;
   --tt-delay: 80ms;
@@ -132,32 +111,32 @@
   --tt-move-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --tt-bg: var(--plate);
   --tt-fg: var(--plate-ink);
-  --acc-expand: 250ms; /* accordion (the data-table disclosure) */
+  --acc-expand: 250ms;
   --acc-collapse: 250ms;
   --acc-chevron: 250ms;
   --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --text-swap-dur: 150ms; /* button label swap */
+  --text-swap-dur: 150ms;
   --text-swap-translate-y: 4px;
   --text-swap-blur: 2px;
   --text-swap-ease: ease-in-out;
-  --shimmer-dur: 2000ms; /* "working" shimmer on the label */
+  --shimmer-dur: 2000ms;
   --shimmer-base: #6b6b68;
   --shimmer-highlight: #0b0b0b;
   --shimmer-band: 400%;
   --shimmer-ease: linear;
-  --shake-distance: 6px; /* error shake */
+  --shake-distance: 6px;
   --shake-overshoot: 4px;
   --shake-dur-a: 80ms;
   --shake-dur-b: 60ms;
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --learn-shift: 2px; /* "Open" link arrow */
+  --learn-shift: 2px;
   --learn-spread: 8deg;
   --learn-in: 350ms;
   --learn-out: 350ms;
   --learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ---- 2. Base ---------------------------------------------------------------- */
+/* base */
 *,
 *::before,
 *::after {
@@ -165,21 +144,21 @@
 }
 
 html {
-  -webkit-font-smoothing: antialiased; /* crisper light-on-dark text on macOS */
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  scrollbar-color: var(--rule-strong) var(--ground); /* the browser's own scrollbar wears the theme too */
+  scrollbar-color: var(--rule-strong) var(--ground);
   accent-color: var(--signal);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  display: flex; /* a column, so the footer sits at the bottom */
+  display: flex;
   flex-direction: column;
   background: var(--ground);
   color: var(--ink);
   font: 400 var(--text-md)/1.6 var(--font);
-  letter-spacing: 0.005em; /* light text on dark reads better with a touch more tracking */
+  letter-spacing: 0.005em;
 }
 
 ::selection {
@@ -233,7 +212,6 @@ a:hover {
   text-decoration-color: currentColor;
 }
 
-/* Keyboard focus is the signal yellow, everywhere. */
 :focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
@@ -246,7 +224,7 @@ canvas {
   max-width: 100%;
 }
 
-/* ---- 3. Sign band, layout, footer -------------------------------------------- */
+/* sign band, layout, footer */
 .container {
   width: 100%;
   max-width: 1160px;
@@ -259,7 +237,6 @@ canvas {
   }
 }
 
-/* Hidden until focused with Tab; lets keyboard users jump past the navigation. */
 .skip-link {
   position: absolute;
   top: -100px;
@@ -275,7 +252,6 @@ canvas {
   top: var(--space-3);
 }
 
-/* The sign band: true black with a thin white rule near the top, like a station sign. */
 .sign-band {
   position: sticky;
   top: 0;
@@ -291,7 +267,7 @@ canvas {
 }
 .band-inner {
   display: flex;
-  flex-wrap: wrap; /* on phones the nav wraps under the name */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-5);
@@ -343,7 +319,7 @@ canvas {
 .nav a[aria-current="page"] {
   background: var(--plate);
   color: var(--plate-ink);
-} /* you are here */
+}
 
 .site-footer {
   padding-block: var(--space-5);
@@ -352,7 +328,7 @@ canvas {
   font-size: var(--text-xs);
 }
 
-/* ---- 4. Panels, sections, small text ------------------------------------------- */
+/* panels, sections, small text */
 .panel {
   padding: var(--space-5);
   border-radius: var(--radius-panel);
@@ -362,7 +338,7 @@ canvas {
 .panel > h2 {
   margin-bottom: var(--space-4);
 }
-/* A panel title with an action (Export CSV) on the right; the action drops under the title on phones. */
+
 .panel-head {
   display: flex;
   flex-wrap: wrap;
@@ -372,7 +348,6 @@ canvas {
   margin-bottom: var(--space-4);
 }
 
-/* A section opens with a white rule, the same mark as the sign band. */
 main > .section {
   margin-top: var(--space-7);
 }
@@ -398,13 +373,12 @@ main > .section {
   flex: 1 1 320px;
   min-width: 0;
   max-width: 460px;
-} /* min-width: 0 lets the file field shrink on phones */
+} /* min-width: 0 so the file input can shrink */
 
 .muted {
   color: var(--muted);
 }
 
-/* Status row: where the data came from and its limits, each item marked by a hollow station. */
 .status {
   display: flex;
   flex-wrap: wrap;
@@ -430,9 +404,8 @@ main > .section {
   border: 2px solid var(--rule-strong);
 }
 
-/* ---- 5. Line bullets (the signature) ---------------------------------------------- */
-/* A coloured disc with a two-letter code, like a subway line bullet. The class
-   picks the line colour; the letters are dark or white, whichever reads better. */
+/* line bullets */
+
 .bullet {
   display: inline-grid;
   place-items: center;
@@ -487,7 +460,7 @@ main > .section {
   color: #ffffff;
 }
 
-/* ---- 6. Buttons --------------------------------------------------------------------- */
+/* buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -514,12 +487,12 @@ main > .section {
 }
 .btn:active {
   scale: 0.96;
-} /* tactile press: always 0.96 */
+}
 .btn[aria-disabled="true"] {
   cursor: progress;
 }
 
-/* ---- 7. Forms ------------------------------------------------------------------------- */
+/* forms */
 label {
   display: block;
   margin-bottom: var(--space-2);
@@ -534,7 +507,7 @@ label {
 .field-row input {
   flex: 1;
   min-width: 0;
-} /* min-width: 0 lets the field shrink on phones */
+} /* min-width: 0 so the input can shrink */
 
 input[type="text"],
 select {
@@ -562,8 +535,6 @@ input::placeholder {
   color: var(--muted);
 }
 
-/* File field (Analyze): the same dark field, with the browser's "Choose file" button as a small plate.
-   4px of padding and a 2px inner radius keep the corners concentric with the field's 6px. */
 input[type="file"] {
   min-height: 44px;
   padding: 4px;
@@ -592,7 +563,6 @@ input[type="file"]::file-selector-button:hover {
   background: #333333;
 }
 
-/* Chart form (Analyze): the fields share a row on wide screens and stack on phones. */
 .builder {
   display: grid;
   gap: var(--space-3) var(--space-4);
@@ -603,7 +573,6 @@ input[type="file"]::file-selector-button:hover {
   width: 100%;
 }
 
-/* A field the server rejected: red outline, plus one transitions.dev error shake when the page arrives. */
 input[aria-invalid="true"] {
   border-color: var(--danger);
   animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2)
@@ -631,7 +600,6 @@ input[aria-invalid="true"] {
   }
 }
 
-/* Button label swap and shimmer while the server works (transitions.dev; driven by js/ui.js). */
 .t-text-swap {
   display: inline-block;
   transform: translateY(0);
@@ -687,7 +655,7 @@ input[aria-invalid="true"] {
   }
 }
 
-/* ---- 8. Alerts -------------------------------------------------------------------------- */
+/* alerts */
 .alert {
   display: flex;
   align-items: flex-start;
@@ -705,7 +673,7 @@ input[aria-invalid="true"] {
   color: var(--danger);
 }
 
-/* ---- 9. Home ------------------------------------------------------------------------------ */
+/* home */
 .intro {
   max-width: 760px;
   padding-top: var(--space-4);
@@ -726,7 +694,6 @@ input[aria-invalid="true"] {
   max-width: 520px;
 }
 
-/* Modes, listed like the lines at a station entrance. */
 .routes {
   margin: 0;
   padding: 0;
@@ -755,7 +722,6 @@ input[aria-invalid="true"] {
   }
 }
 
-/* "Open" links: the chevron slides and opens into an arrow on hover (transitions.dev learn-more). */
 .t-learn {
   display: inline-flex;
   align-items: center;
@@ -797,7 +763,6 @@ input[aria-invalid="true"] {
   transform: rotate(calc(var(--learn-spread) * -1));
 }
 
-/* The first viewport: the lookup on the left, the line map on the right (stacked on smaller screens). */
 .home-hero {
   display: grid;
   gap: var(--space-6);
@@ -810,7 +775,6 @@ input[aria-invalid="true"] {
   }
 }
 
-/* "Try" and "Recent": one-click lookups, so nobody has to think of a username. */
 .quick {
   display: flex;
   flex-wrap: wrap;
@@ -832,7 +796,7 @@ input[aria-invalid="true"] {
   padding: 0;
   list-style: none;
 }
-/* Export CSV links wear the same outlined plate: a quiet action next to the white primary one. */
+
 .chip,
 .export {
   display: inline-flex;
@@ -859,7 +823,6 @@ input[aria-invalid="true"] {
   scale: 0.96;
 }
 
-/* The line map: three sources run into the "One table" interchange; one trunk carries on. */
 .line-map {
   margin: 0;
 }
@@ -906,7 +869,7 @@ input[aria-invalid="true"] {
 .map-label {
   fill: var(--ink-2);
   font: 600 17px var(--font);
-} /* SVG units: drawn near 1:1 on desktop, about 11px on phones */
+}
 .map-label-strong {
   fill: var(--ink);
   font-weight: 700;
@@ -927,7 +890,6 @@ input[aria-invalid="true"] {
   font-size: var(--text-sm);
 }
 
-/* Pointing at (or tabbing to) a mode lights its line on the map and quiets the others. */
 main:has(.route[data-line="p"]:is(:hover, :focus-within))
   :is(.map-line-c, .map-line-a, .map-bullet.line-2, .map-bullet.line-3),
 main:has(.route[data-line="c"]:is(:hover, :focus-within))
@@ -937,7 +899,7 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   opacity: 0.2;
 }
 
-/* ---- 10. Profile --------------------------------------------------------------------------- */
+/* profile */
 .profile {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -949,7 +911,7 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   height: 96px;
   border-radius: 50%;
   outline: 1px solid oklch(1 0 0 / 0.1);
-  outline-offset: -1px; /* make-interfaces image outline: pure white at 10% */
+  outline-offset: -1px;
 }
 .profile-name {
   font-size: var(--text-xl);
@@ -999,8 +961,6 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   }
 }
 
-/* Facts: the four figures live inside the profile panel. Below the identity behind a hairline
-   (2 × 2 on phones, one row of four from 640px); in their own column on the right from 1000px. */
 .facts {
   grid-column: 1 / -1;
   display: grid;
@@ -1043,7 +1003,7 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   letter-spacing: -0.02em;
 }
 
-/* ---- 11. Charts (drawn by js/charts.js) ----------------------------------------------------- */
+/* charts */
 .chart-grid {
   display: grid;
   gap: var(--space-4);
@@ -1052,8 +1012,7 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
 .chart-wide {
   grid-column: 1 / -1;
 }
-/* <figure> has default margins. A column, so in a row of panels the chart takes the spare height
-   (and centres in it) and every "Data table" line sits at the same height. */
+
 .chart {
   display: flex;
   flex-direction: column;
@@ -1082,11 +1041,11 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   position: relative;
   flex: 1 1 260px;
   min-width: 0;
-} /* the tooltip is positioned inside this box */
+}
 .chart-canvas canvas {
   width: 100%;
   height: 280px;
-} /* the height includes the axis labels */
+}
 
 .chart-legend {
   flex: 1 1 180px;
@@ -1115,8 +1074,6 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   font-variant-numeric: tabular-nums;
 }
 
-/* Tooltip: a white sign plate anchored to the mark. transitions.dev tooltip:
-   a short delayed fade+scale in, out almost at once, and it travels between marks. */
 .chart-tooltip {
   position: absolute;
   top: 0;
@@ -1166,10 +1123,8 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   height: 3px;
   border-radius: 2px;
   background: var(--line);
-} /* a short line in the mark's colour */
+}
 
-/* The data table under each chart: a native <details>, animated like the
-   transitions.dev accordion where the browser supports ::details-content. */
 .chart-data {
   margin-top: var(--space-4);
   border-top: 1px solid var(--rule);
@@ -1231,9 +1186,8 @@ main:has(.route[data-line="a"]:is(:hover, :focus-within))
   margin-top: var(--space-2);
 }
 
-/* ---- 12. Tables -------------------------------------------------------------------------- */
+/* tables */
 .table-wrap {
-  /* long or wide tables scroll inside this box */
   overflow: auto;
   max-height: 480px;
   border: 1px solid var(--rule);
@@ -1252,7 +1206,6 @@ td {
   white-space: nowrap;
 }
 thead th {
-  /* the header row stays visible while scrolling */
   position: sticky;
   top: 0;
   z-index: 1;
@@ -1273,7 +1226,7 @@ tbody tr:last-child td {
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-} /* digits line up down the column */
+}
 .cell-line {
   display: inline-flex;
   align-items: center;
@@ -1284,7 +1237,7 @@ tbody tr:last-child td {
   min-width: 24ch;
   max-width: 70ch;
   white-space: normal;
-} /* long text wraps instead of widening the table */
+}
 
 .rules {
   margin: 0;
@@ -1295,8 +1248,8 @@ tbody tr:last-child td {
   margin-top: var(--space-2);
 }
 
-/* ---- 13. Reduced motion -------------------------------------------------------------------- */
-/* Movement goes; the static cues (colour, labels, the open table) stay. */
+/* reduced motion */
+
 @media (prefers-reduced-motion: reduce) {
   .chart-tooltip,
   .t-text-swap,

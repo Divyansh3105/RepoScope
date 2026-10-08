@@ -8,7 +8,7 @@
 
 RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks or a database, to show what core PHP can do on its own; the only library is a self-hosted GSAP file for chart animation.
 
-> **Status: work in progress.** Phases 1 to 4 of 5 are done: security foundations, layout and theme, the GitHub client, Profile, Analyze and Compare modes, and CSV export. Tests and deployment *(Phase 5)* are still being built. See the [roadmap](#roadmap).
+> **Status: work in progress.** Phases 1 to 4 of 5 are done: security foundations, layout and theme, the GitHub client, Profile, Analyze and Compare modes, and CSV export. Tests and deployment _(Phase 5)_ are still being built. See the [roadmap](#roadmap).
 
 ## Features
 
@@ -31,16 +31,16 @@ Screenshots are added as each mode is finished.
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Backend | PHP 8.5: plain functions, `require`, forms and sessions. No framework, no Composer |
-| Charts | HTML5 Canvas and vanilla JavaScript, no chart library |
-| Motion | [GSAP](https://gsap.com) 3.15, self-hosted (one file, no npm), for the chart draw-in; CSS transitions for everything else |
-| Styling | Plain CSS: custom properties, Grid and Flexbox |
-| Storage | PHP sessions only. No database, nothing saved to disk |
-| Data sources | GitHub REST API and user-uploaded CSV files |
-| Testing | PHPUnit run from a single `.phar` file, plus GitHub Actions *(Phase 5)* |
-| Hosting | Docker (official PHP + Apache image) on Render *(Phase 5)* |
+| Layer        | Choice                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | PHP 8.5: plain functions, `require`, forms and sessions. No framework, no Composer                                        |
+| Charts       | HTML5 Canvas and vanilla JavaScript, no chart library                                                                     |
+| Motion       | [GSAP](https://gsap.com) 3.15, self-hosted (one file, no npm), for the chart draw-in; CSS transitions for everything else |
+| Styling      | Plain CSS: custom properties, Grid and Flexbox                                                                            |
+| Storage      | PHP sessions only. No database, nothing saved to disk                                                                     |
+| Data sources | GitHub REST API and user-uploaded CSV files                                                                               |
+| Testing      | PHPUnit run from a single `.phar` file, plus GitHub Actions _(Phase 5)_                                                   |
+| Hosting      | Docker (official PHP + Apache image) on Render _(Phase 5)_                                                                |
 
 **Constraints, on purpose:**
 
@@ -54,6 +54,7 @@ Screenshots are added as each mode is finished.
 The interface follows one visual idea, **the transit line system**. Every page has a black sign band with a white rule, and actions sit on white sign plates. Each category (a programming language, a CSV value) is a "line" with its own coloured bullet, and line charts are drawn as routes with stations. Colours and fonts live as CSS custom properties at the top of [`public/css/style.css`](public/css/style.css).
 
 It was designed with four public guides:
+
 - [Impeccable](https://impeccable.style) for the direction and its quality floor.
 - [transitions.dev](https://transitions.dev) for motion timings and the tooltip, disclosure, error-shake and text-swap recipes.
 - [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) for the details: press scale, hit areas, outlines, text wrapping.
@@ -184,7 +185,7 @@ return ['github_token' => 'paste-your-token-here'];
 
 ## Running tests
 
-*(Phase 5)* Unit tests use PHPUnit, run from a single `.phar` file (no Composer). They will cover:
+_(Phase 5)_ Unit tests use PHPUnit, run from a single `.phar` file (no Composer). They will cover:
 
 - username validation and numeric column detection
 - every statistics function
@@ -196,7 +197,7 @@ They use saved JSON fixtures instead of calling the real API. Instructions will 
 
 ## Deployment
 
-*(Phase 5)* RepoScope will ship with a `Dockerfile` based on the official PHP + Apache image, with the document root set to `public/`. It will be ready to deploy as a Docker web service on [Render](https://render.com), with the GitHub token set there as the `GITHUB_TOKEN` environment variable.
+_(Phase 5)_ RepoScope will ship with a `Dockerfile` based on the official PHP + Apache image, with the document root set to `public/`. It will be ready to deploy as a Docker web service on [Render](https://render.com), with the GitHub token set there as the `GITHUB_TOKEN` environment variable.
 
 ## Project structure
 
@@ -247,7 +248,7 @@ RepoScope/
 <!-- Draft based on what came up while building. Rewrite it in your own words as you go. -->
 
 - PHP locks the session file for the whole request, so calling `session_write_close()` early keeps other tabs from waiting.
-- Security works in layers: escaping output *and* a Content Security Policy, CSRF tokens *and* `SameSite` cookies.
+- Security works in layers: escaping output _and_ a Content Security Policy, CSRF tokens _and_ `SameSite` cookies.
 - What session fixation is, and how `session.use_strict_mode` plus `session_regenerate_id()` prevent it.
 - Behind a reverse proxy such as Render, PHP only sees plain HTTP. The original scheme arrives in the `X-Forwarded-Proto` header.
 - Languages keep moving: PHP 8.5 deprecates `$http_response_header` in favour of `http_get_last_response_headers()`.

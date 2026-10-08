@@ -1,19 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
-/*
- * Functions that work on the app's one table shape:
- *
- *     ['headers' => ['Repository', 'Stars'], 'rows' => [['repo-a', 120], ['repo-b', 45]]]
- *
- * Chart-data builders turn a table into what js/charts.js draws:
- *
- *     ['title' => 'Stars', 'labels' => ['repo-a', 'repo-b'], 'values' => [120, 45]]
- *
- * Every function here is pure: it only reads its arguments and returns a new value.
- */
+// Stats and chart data from a table (['headers' => [...], 'rows' => [[...], ...]]).
+// Chart builders return ['title' => ..., 'labels' => [...], 'values' => [...]] for charts.js.
 
-/** Counts how often each non-empty value appears in column $col, most common first. */
+// How often each non-empty value appears in a column, most common first.
 function chart_count(array $table, int $col, string $title): array
 {
     $counts = [];
@@ -23,17 +15,16 @@ function chart_count(array $table, int $col, string $title): array
             $counts[$value] = ($counts[$value] ?? 0) + 1;
         }
     }
-    arsort($counts); // biggest count first (ties keep their original order)
+    arsort($counts);
 
     return [
         'title'  => $title,
-        // PHP turns array keys like "2024" into integers; strval turns labels back into text.
-        'labels' => array_map('strval', array_keys($counts)),
+        'labels' => array_map('strval', array_keys($counts)), // keys like "2024" come back as ints
         'values' => array_values($counts),
     ];
 }
 
-/** The $n rows with the largest positive value in column $valueCol, labelled by column $labelCol. */
+// Top $n rows by a column (values > 0 only).
 function chart_top(array $table, int $labelCol, int $valueCol, int $n, string $title): array
 {
     $rows = array_filter($table['rows'], fn(array $row): bool => $row[$valueCol] > 0);
@@ -47,7 +38,7 @@ function chart_top(array $table, int $labelCol, int $valueCol, int $n, string $t
     ];
 }
 
-/** Counts rows per year of a date column ("2021-04-30" counts for 2021). Years with nothing get a 0. */
+// Rows per year of a YYYY-MM-DD column, with empty years filled in as 0.
 function chart_by_year(array $table, int $dateCol, string $title): array
 {
     $counts = [];
@@ -61,7 +52,6 @@ function chart_by_year(array $table, int $dateCol, string $title): array
     $labels = [];
     $values = [];
     if ($counts !== []) {
-        // Fill the gaps, so a quiet year shows as a dip to zero instead of being skipped.
         for ($year = min(array_keys($counts)); $year <= max(array_keys($counts)); $year++) {
             $labels[] = (string) $year;
             $values[] = $counts[$year] ?? 0;
@@ -70,14 +60,10 @@ function chart_by_year(array $table, int $dateCol, string $title): array
     return ['title' => $title, 'labels' => $labels, 'values' => $values];
 }
 
-/* ---------- Numbers in CSV cells (Analyze mode) ---------- */
+// --- CSV numbers (Analyze) ---
 
-/**
- * Reads a cell as a number: "42" → 42, "-3.5" → -3.5, "1,234,567" → 1234567.
- * Returns null for anything else: "", "N/A", "12 kg", "1,23".
- * Commas only count as thousands separators in correct groups of three, so "1,23"
- * (a decimal comma in many countries) is never misread as 123.
- */
+// "42" -> 42, "-3.5" -> -3.5, "1,234,567" -> 1234567, anything else -> null.
+// Commas only count as thousands separators in groups of 3, so "1,23" stays text.
 function parse_number(string $text): int|float|null
 {
     $text = trim($text);
@@ -87,19 +73,16 @@ function parse_number(string $text): int|float|null
     if (!is_numeric($text)) {
         return null;
     }
-    $int = filter_var($text, FILTER_VALIDATE_INT); // false for "2.5", "1e3" and numbers too big for an int
+    $int = filter_var($text, FILTER_VALIDATE_INT); // false for 2.5, 1e3 or too big for int
     if ($int !== false) {
         return $int;
     }
     $float = (float) $text;
-    return is_finite($float) ? $float : null; // "1e999" is too big even for a float
+    return is_finite($float) ? $float : null; // e.g. 1e999
 }
 
-/**
- * 'number' or 'text' for every column. A column holds numbers when at least
- * NUMERIC_THRESHOLD (80%) of its non-empty cells are numbers, so one "N/A" doesn't
- * turn a column of prices into text. A column with nothing in it counts as text.
- */
+// 'number' or 'text' per column. A column is numeric if at least NUMERIC_THRESHOLD of its
+// filled cells parse as numbers, so a stray "N/A" doesn't make it text.
 function column_types(array $table): array
 {
     $types = [];
@@ -118,7 +101,6 @@ function column_types(array $table): array
     return $types;
 }
 
-/** The numbers in column $col. Empty cells and cells that aren't numbers are skipped. */
 function column_numbers(array $table, int $col): array
 {
     $numbers = [];
@@ -131,7 +113,6 @@ function column_numbers(array $table, int $col): array
     return $numbers;
 }
 
-/** Count, sum, min, max, mean and median of a list of numbers. An empty list gives null for the last four. */
 function number_stats(array $numbers): array
 {
     $count = count($numbers);
@@ -147,17 +128,12 @@ function number_stats(array $numbers): array
         'min'    => $numbers[0],
         'max'    => $numbers[$count - 1],
         'mean'   => $sum / $count,
-        // The middle value, or the average of the two middle values when the count is even.
         'median' => $count % 2 === 1 ? $numbers[$middle] : ($numbers[$middle - 1] + $numbers[$middle]) / 2,
     ];
 }
 
-/**
- * Groups the rows by the value in column $groupCol and gives every group one number:
- * 'count' (its rows), 'sum' or 'avg' (of the numbers in column $valueCol).
- * Groups keep the order they first appear in. Rows with an empty group cell are skipped,
- * and so are rows without a number in $valueCol for 'sum' and 'avg'.
- */
+// Groups rows by $groupCol and gives each group a count, sum or avg of $valueCol.
+// Empty groups and non-numeric values (for sum/avg) are skipped.
 function chart_group(array $table, int $groupCol, int $valueCol, string $calc, string $title): array
 {
     $sums = [];
@@ -179,32 +155,45 @@ function chart_group(array $table, int $groupCol, int $valueCol, string $calc, s
     return ['title' => $title, 'labels' => array_map('strval', array_keys($sums)), 'values' => $values];
 }
 
-/**
- * Statistics for the number columns as a table (the one table shape), one row per column.
- * Count is how many cells hold a number; Skipped is the rest (empty, or not a number).
- */
+// One row of stats per number column. Skipped = empty or non-numeric cells.
 function number_summary(array $table, array $numberCols): array
 {
     $summary = ['headers' => ['Column', 'Count', 'Skipped', 'Sum', 'Min', 'Max', 'Mean', 'Median'], 'rows' => []];
     foreach ($numberCols as $col) {
         $stats = number_stats(column_numbers($table, $col));
-        $summary['rows'][] = [$table['headers'][$col], $stats['count'], count($table['rows']) - $stats['count'],
-            $stats['sum'], $stats['min'], $stats['max'], $stats['mean'], $stats['median']];
+        $summary['rows'][] = [
+            $table['headers'][$col],
+            $stats['count'],
+            count($table['rows']) - $stats['count'],
+            $stats['sum'],
+            $stats['min'],
+            $stats['max'],
+            $stats['mean'],
+            $stats['median']
+        ];
     }
     return $summary;
 }
 
-/** The text columns as a table: filled and empty cells, how many different values, and the 10 most common. */
+// One row per text column: filled/empty/unique counts and the 10 most common values.
 function text_summary(array $table, array $textCols): array
 {
     $summary = ['headers' => ['Column', 'Count', 'Empty', 'Unique', 'Most common (up to 10)'], 'rows' => []];
     foreach ($textCols as $col) {
         $counts = chart_count($table, $col, '');
         $filled = array_sum($counts['values']);
-        $top = array_map(fn(string $value, int $n): string => "{$value} ({$n})",
-            array_slice($counts['labels'], 0, 10), array_slice($counts['values'], 0, 10));
-        $summary['rows'][] = [$table['headers'][$col], $filled, count($table['rows']) - $filled,
-            count($counts['labels']), implode(' · ', $top)];
+        $top = array_map(
+            fn(string $value, int $n): string => "{$value} ({$n})",
+            array_slice($counts['labels'], 0, 10),
+            array_slice($counts['values'], 0, 10)
+        );
+        $summary['rows'][] = [
+            $table['headers'][$col],
+            $filled,
+            count($table['rows']) - $filled,
+            count($counts['labels']),
+            implode(' · ', $top)
+        ];
     }
     return $summary;
 }

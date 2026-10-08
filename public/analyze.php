@@ -1,20 +1,15 @@
 <?php
+
 declare(strict_types=1);
 
 require __DIR__ . '/../includes/bootstrap.php';
 
-/*
- * Analyze mode. Two requests:
- *   POST (the upload form)   check the file, parse it, keep its table in the session,
- *                            then redirect to a plain GET of this page.
- *   GET  (everything else)   show the table from the session: column types, statistics,
- *                            a chart of the columns picked in the chart form, and a preview.
- */
+// Analyze: POST uploads a CSV into the session and redirects; GET shows stats and a chart.
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($_POST === [] && $_FILES === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-        // Bigger than php.ini's post_max_size: PHP throws the whole request away, token included.
+        // over post_max_size: PHP drops the whole body, csrf token included
         $error = CSV_TOO_BIG;
     } elseif (!csrf_is_valid($_POST['csrf_token'] ?? null)) {
         $error = 'This form expired. Please choose the file and upload it again.';
@@ -27,17 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '') {
-        // ponytail: the whole table (up to ~2 MB) lives in the session and is read on every page
-        // view. Fine for one visitor's file; a shared server would want a size cap per session.
+        // TODO: the whole table (up to ~2 MB) sits in the session; cap it if this ever runs on a shared host
         $_SESSION['analyze'] = [
-            'name'  => mb_substr(basename((string) $_FILES['csv']['name']), 0, 100), // shown escaped, never used as a path
+            'name'  => mb_substr(basename((string) $_FILES['csv']['name']), 0, 100),
             'table' => $parsed['table'],
             'notes' => $parsed['notes'],
         ];
-        $_SESSION['analyze_fresh'] = true; // the next view draws its chart in
+        $_SESSION['analyze_fresh'] = true; // animate the chart on the next view
 
-        // Post/Redirect/Get: the browser lands on a normal GET page, so a refresh
-        // doesn't ask to send the file again, and the chart form's links work.
+        // redirect so a refresh doesn't re-submit the upload
         header('Location: analyze.php', true, 303);
         exit;
     }
@@ -48,7 +41,6 @@ $dataset = $_SESSION['analyze'] ?? null;
 $fresh = isset($_SESSION['analyze_fresh']);
 unset($_SESSION['analyze_fresh']);
 
-// Everything that touches the session is done: release its lock before the work and the page.
 session_write_close();
 
 if ($dataset !== null) {
@@ -56,32 +48,28 @@ if ($dataset !== null) {
     $headers = $table['headers'];
     $rowCount = count($table['rows']);
     $types = column_types($table);
-    $numberCols = array_keys($types, 'number'); // positions of the number columns
+    $numberCols = array_keys($types, 'number');
     $textCols = array_keys($types, 'text');
 
-    // The statistics are tables too (the one table shape), one row per column of the file.
-    // export.php builds the same two tables, so the downloads match what is shown here.
     $numberSummary = number_summary($table, $numberCols);
     $textSummary = text_summary($table, $textCols);
 
-    // Number columns worth adding up. An ID column (whole numbers, all different) never is.
+    // number columns worth summing by default (skip ID-like ones: all unique ints)
     $measures = array_values(array_filter($numberCols, function (int $col) use ($table): bool {
         $numbers = column_numbers($table, $col);
         return count(array_filter($numbers, 'is_int')) < count($numbers) || count(array_unique($numbers)) < count($numbers);
     }));
-    $groupable = []; // text column => how many different values it has, when that is 2 or more
+    $groupable = []; // text col => distinct values, if 2+
     foreach ($textSummary['rows'] as $i => $row) {
-        if ($row[3] >= 2) { // column 3 = Unique
+        if ($row[3] >= 2) { // Unique
             $groupable[$textCols[$i]] = $row[3];
         }
     }
 
-    // The chart form. Every value is checked against a fixed list before it is used.
     $column = fn(mixed $value, array $allowed, int $default): int =>
-        is_string($value) && ctype_digit($value) && in_array((int) $value, $allowed, true) ? (int) $value : $default;
+    is_string($value) && ctype_digit($value) && in_array((int) $value, $allowed, true) ? (int) $value : $default;
 
-    // With no choices made yet, group by the text column with the fewest different values
-    // (Region rather than Customer name) and add up the first number column that isn't an ID.
+    // defaults: group by the text column with the fewest distinct values, sum the first non-ID number column
     asort($groupable);
     $type = pick($_GET['type'] ?? null, ['bar', 'line', 'pie'], 'bar');
     $x = $column($_GET['x'] ?? null, array_keys($headers), array_key_first($groupable) ?? $textCols[0] ?? 0);
@@ -98,15 +86,15 @@ if ($dataset !== null) {
 
     $chartNote = match ($calc) {
         'count' => "How many rows hold each value of {$headers[$x]}.",
-        'sum'   => "{$headers[$y]} added up for each value of {$headers[$x]}; cells that aren’t numbers are skipped.",
-        'avg'   => "The mean of {$headers[$y]} for each value of {$headers[$x]}; cells that aren’t numbers are skipped.",
+        'sum'   => "{$headers[$y]} added up for each value of {$headers[$x]}; cells that aren't numbers are skipped.",
+        'avg'   => "The mean of {$headers[$y]} for each value of {$headers[$x]}; cells that aren't numbers are skipped.",
     };
     if ($type === 'line') {
-        // A route runs in order along the x axis. Natural order puts "9" before "10".
+        // natural sort so "9" comes before "10"
         array_multisort($chart['labels'], SORT_NATURAL, $chart['values']);
         $chartNote .= " In {$headers[$x]} order.";
     } else {
-        array_multisort($chart['values'], SORT_DESC, $chart['labels']); // largest first
+        array_multisort($chart['values'], SORT_DESC, $chart['labels']);
         if ($type === 'bar' && $groups > 20) {
             $chart['labels'] = array_slice($chart['labels'], 0, 20);
             $chart['values'] = array_slice($chart['values'], 0, 20);
@@ -121,7 +109,6 @@ if ($dataset !== null) {
     $wrap = fn(mixed $text): string => '<span class="cell-wrap">' . e((string) $text) . '</span>';
 }
 
-/** One <option>, marked selected when it is the current value. */
 function option(string|int $value, string $label, string|int $current): string
 {
     return '<option value="' . e($value) . '"' . ($value === $current ? ' selected' : '') . '>' . e($label) . '</option>';
@@ -134,13 +121,12 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
         <h1>Analyze</h1>
         <p>Upload any CSV file to see which columns hold numbers or text, their statistics, and a chart of the columns you pick.</p>
     </div>
-    <!-- multipart/form-data is the encoding that can carry a file. POST, because an upload changes the session. -->
-    <form class="search" action="analyze.php" method="post" enctype="multipart/form-data" data-pending="Reading…">
+    <form class="search" action="analyze.php" method="post" enctype="multipart/form-data" data-pending="Reading...">
         <?= csrf_field() ?>
         <label for="csv">CSV file <span class="muted">(up to <?= UPLOAD_MAX_BYTES / 1048576 ?> MB)</span></label>
         <div class="field-row">
             <input id="csv" name="csv" type="file" accept=".csv,text/csv" required
-                   <?= $error !== '' ? 'aria-invalid="true" aria-describedby="upload-error"' : '' ?>>
+                <?= $error !== '' ? 'aria-invalid="true" aria-describedby="upload-error"' : '' ?>>
             <button class="btn" type="submit"><span class="t-text-swap">Analyze</span></button>
         </div>
     </form>
@@ -149,14 +135,14 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 <?php if ($error !== ''): ?>
     <div class="alert" id="upload-error" role="alert">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8"/><path d="M10 6v5M10 14h.01"/>
+            <circle cx="10" cy="10" r="8" />
+            <path d="M10 6v5M10 14h.01" />
         </svg>
         <p><strong>Error:</strong> <?= e($error) ?></p>
     </div>
 <?php endif; ?>
 
 <?php if ($dataset !== null): ?>
-    <!-- What was read and what was changed or left out (honest numbers). -->
     <ul class="status" aria-label="About this file">
         <li><?= e($dataset['name']) ?></li>
         <li><?= number_format($rowCount) ?> <?= $rowCount === 1 ? 'row' : 'rows' ?>, <?= count($headers) ?> <?= count($headers) === 1 ? 'column' : 'columns' ?></li>
@@ -168,7 +154,6 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 
     <section class="panel" aria-labelledby="builder-title">
         <h2 id="builder-title">Chart</h2>
-        <!-- GET: picking a chart changes nothing on the server, so the result can be bookmarked. -->
         <form class="builder" action="analyze.php" method="get">
             <div>
                 <label for="type">Type</label>
@@ -203,7 +188,6 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
         </form>
     </section>
 
-    <!-- data-animate: the chart draws itself in only on the first view after an upload. -->
     <section class="chart-grid" aria-label="Chart"<?= $fresh ? ' data-animate' : '' ?>>
         <?php render_chart($type, $chart, [$headers[$x], $measure], 'chart-wide', note: $chartNote); ?>
     </section>
