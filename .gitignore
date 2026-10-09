@@ -10,3 +10,4 @@ config/config.local.php
 .impeccable/
 DESIGN.md
 PRODUCT.md
+.playwright-mcp/
