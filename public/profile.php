@@ -32,6 +32,11 @@ $rate = $_SESSION['github_rate'] ?? null;
 
 session_write_close();
 
+// only set when a profile loaded; declared here so the template's uses are all defined
+$languages = $topStars = $timeline = $table = $col = $facts = $languageCell = null;
+$blogUrl = '';
+$forks = $minutesOld = 0;
+
 if ($result !== null) {
     $profile = $result['profile'];
     $table = repos_table($result['repos']);
@@ -57,7 +62,6 @@ if ($result !== null) {
         : '<span class="cell-line">' . line_bullet((string) $language, $slots[$language] ?? 8, 'bullet-sm') . e((string) $language) . '</span>';
 
     // the blog field is often just "example.com"
-    $blogUrl = '';
     if ($profile['blog'] !== '') {
         $blogUrl = safe_url(preg_match('~^https?://~i', $profile['blog']) ? $profile['blog'] : 'https://' . $profile['blog']);
     }
