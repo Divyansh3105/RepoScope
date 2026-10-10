@@ -1,273 +1,211 @@
 # RepoScope
 
-**Turn GitHub profiles and CSV files into statistics and interactive charts, using plain PHP and HTML5 Canvas.**
+RepoScope turns GitHub profiles and CSV files into statistics and interactive charts. It is written in plain PHP 8.5 with a canvas chart library built from scratch: no framework, no database and no build step.
 
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
+![Database: none](https://img.shields.io/badge/database-none-lightgrey)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-RepoScope is a data-analytics web app. Look up a GitHub user, compare a group of developers, or upload any CSV file, and RepoScope works out the statistics and draws interactive charts. It is built without frameworks or a database, to show what core PHP can do on its own; the only library is a self-hosted GSAP file for chart animation.
+![RepoScope profile page for Divyansh3105 showing a language donut, most-starred repositories and profile figures](docs/screenshots/profile.png)
 
-> **Status: work in progress.** Phases 1 to 4 of 5 are done: security foundations, layout and theme, the GitHub client, Profile, Analyze and Compare modes, and CSV export. Tests and deployment _(Phase 5)_ are still being built. See the [roadmap](#roadmap).
+**Status:** all four modes are complete. Unit tests, continuous integration and deployment are still in progress (see the [roadmap](#roadmap)).
+
+## Contents
+
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Security](#security)
+- [Configuration](#configuration)
+- [Project structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
+- [What I learned](#what-i-learned)
+- [Credits and license](#credits-and-license)
 
 ## Features
 
-- **Profile mode**: enter a GitHub username to see the profile and three charts: language distribution (pie), stars per repository (ranked horizontal bars, top 10) and a repository creation timeline (line).
-- **Compare mode**: upload a CSV of up to 15 GitHub usernames (a `username` column, or the first column; see the [sample](public/samples/developers.csv)). You get a leaderboard ranked by stars (repositories, total stars, followers, number of languages), ranked bar charts for stars, followers and repositories, and a combined language chart for the group. A leading `@` and repeated names are fine. If one user fails, the rest still load and the page says why, and users already cached cost no API calls.
-- **Analyze mode**: upload any CSV. RepoScope detects which columns hold numbers and which hold text, then shows summary statistics: count, sum, min, max, mean and median for numbers, and unique count and top 10 values for text. Pick a column to group by and a count, sum or average to draw a bar, line or pie chart, and preview the first 100 rows. A [sample sales file](public/samples/sales.csv) is included to try it.
-- **Export**: every result table has an "Export CSV" link: a profile's repositories, the Compare leaderboard, and Analyze's data and statistics tables. The file is generated on the fly from the session, opens correctly in Excel (UTF-8 with a byte order mark), and is protected against formula injection.
-- **Hand-written canvas charts**: no chart library. Charts stay sharp on high-DPI screens, redraw on resize, and have hover tooltips and readable axis labels. Pies with more than 8 categories get an "Other" slice, and colours come from the CSS theme. Every chart has an HTML table of the same data underneath for screen readers.
+| Mode | Input | Output |
+| --- | --- | --- |
+| Profile | A GitHub username | Profile summary, language donut, the 10 most-starred repositories, repositories created per year |
+| Compare | A CSV of up to 15 usernames ([sample](public/samples/developers.csv)) | Leaderboard by stars and followers, bar charts for stars, followers and repositories, a combined language chart |
+| Analyze | Any CSV file ([sample](public/samples/sales.csv)) | Column type detection, number and text statistics, a bar, line or pie chart of any grouping, a data preview |
+| Export | Any result table | A CSV download that opens cleanly in Excel and is protected against formula injection |
+
+Other details:
+
+- **Canvas charts:** sharp on high-DPI screens and responsive, with tooltips and an "Other" slice for long pie tails. Every chart has a data table beneath it for screen readers.
+- **CSV statistics:** count, sum, min, max, mean and median for number columns. Filled, empty and unique counts and the 10 most common values for text columns. A column counts as numeric when at least 80% of its filled cells are numbers, so a stray `N/A` does not change its type.
+- **API quota handling:** GitHub results are cached in the session for 10 minutes. The remaining quota is shown on the Profile and Compare pages, and once the hourly limit is used up the app stops sending requests until it resets.
+- **Partial Compare results:** a user who cannot be loaded is listed with the reason, and the rest of the group still loads.
+- **No JavaScript required for forms:** every form submits normally, and every chart has an HTML table with the same data.
 
 ## Screenshots
 
-Screenshots are added as each mode is finished.
+| Home | Compare | Analyze |
+| --- | --- | --- |
+| ![Home page with the lookup form and line map](docs/screenshots/home.png) | ![Compare leaderboard and charts for five developers](docs/screenshots/compare.png) | ![Analyze chart builder showing revenue by region](docs/screenshots/analyze.png) |
 
-<!-- Save images in docs/screenshots/ and uncomment the lines below.
-![Home page](docs/screenshots/home.png)
-![Profile mode](docs/screenshots/profile.png)
-![Compare mode](docs/screenshots/compare.png)
-![Analyze mode](docs/screenshots/analyze.png)
--->
+## Quick start
 
-## Tech stack
-
-| Layer        | Choice                                                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Backend      | PHP 8.5: plain functions, `require`, forms and sessions. No framework, no Composer                                        |
-| Charts       | HTML5 Canvas and vanilla JavaScript, no chart library                                                                     |
-| Motion       | [GSAP](https://gsap.com) 3.15, self-hosted (one file, no npm), for the chart draw-in; CSS transitions for everything else |
-| Styling      | Plain CSS: custom properties, Grid and Flexbox                                                                            |
-| Storage      | PHP sessions only. No database, nothing saved to disk                                                                     |
-| Data sources | GitHub REST API and user-uploaded CSV files                                                                               |
-| Testing      | PHPUnit run from a single `.phar` file, plus GitHub Actions _(Phase 5)_                                                   |
-| Hosting      | Docker (official PHP + Apache image) on Render _(Phase 5)_                                                                |
-
-**Constraints, on purpose:**
-
-- No frameworks, Composer packages, Node.js, npm or build step.
-- No database, and no files saved on the server. Uploads are read from PHP's temporary upload location and never moved.
-- Pages are rendered by PHP, and navigation uses normal links and forms (no `fetch`).
-- JavaScript draws the charts and adds small interface feedback (a "Looking up…" button state). Pages work without it: every chart has a data table, and every form submits normally.
-
-## Design
-
-The interface follows one visual idea, **the transit line system**. Every page has a black sign band with a white rule, and actions sit on white sign plates. Each category (a programming language, a CSV value) is a "line" with its own coloured bullet, and line charts are drawn as routes with stations. Colours and fonts live as CSS custom properties at the top of [`public/css/style.css`](public/css/style.css).
-
-It was designed with four public guides:
-
-- [Impeccable](https://impeccable.style) for the direction and its quality floor.
-- [transitions.dev](https://transitions.dev) for motion timings and the tooltip, disclosure, error-shake and text-swap recipes.
-- [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) for the details: press scale, hit areas, outlines, text wrapping.
-- The official [GSAP skills](https://github.com/greensock/gsap-skills) for the chart animation.
-
-Motion is deliberately small. Charts draw themselves in only when fresh data arrives from GitHub, never on a cached view, and everything moving is switched off for visitors who prefer reduced motion.
-
-## Architecture: one table shape
-
-Every data source is converted into the same simple structure:
-
-```php
-[
-    'headers' => ['name', 'stars', 'language'],
-    'rows'    => [
-        ['repo-a', 120, 'PHP'],
-        ['repo-b', 45, 'JavaScript'],
-    ],
-]
-```
-
-GitHub data and CSV uploads both end up in this shape, so one set of statistics functions, one chart-data builder and one CSV exporter work for every mode. These functions are small and pure (data in, result out, no side effects), which makes them easy to unit test.
-
-```text
-   GitHub REST API (JSON)               CSV upload (.csv file)
-            |                                    |
-            v                                    v
-   includes/github.php                  includes/csv.php
-   fetch + session cache,               validate upload, parse with
-   keep only needed fields              fgetcsv, detect headers
-            |                                    |
-            +-----------------+------------------+
-                              |
-                              v
-            +------------------------------------+
-            |          ONE TABLE SHAPE           |
-            |  ['headers' => [...],              |
-            |   'rows'    => [[...], [...]]]     |
-            +------------------------------------+
-                              |
-         +--------------------+--------------------+
-         |                    |                    |
-         v                    v                    v
-  includes/stats.php  chart data builder   public/export.php
-  count, sum, min,    {labels, values,     CSV download with
-  max, mean, median,  title} -> JSON ->    formula-injection
-  top values          js/charts.js         protection
-```
-
-### Request flow
-
-1. Every page in `public/` first loads `includes/bootstrap.php`, which sets up the settings, helper functions, security headers and session.
-2. The page validates its input: fixed lists of allowed values for options, GitHub's rules for usernames, and a CSRF token for every POST.
-3. Data is read from the session cache (or fetched), then converted into the table shape.
-4. `session_write_close()` releases the session lock before rendering, so the user's other tabs are not kept waiting.
-5. PHP renders the HTML. Chart data is embedded as JSON in `<script type="application/json">`, and `js/charts.js` draws it on a `<canvas>`.
-
-## Security
-
-- **Output escaping (XSS):** every value printed into HTML goes through `e()`, a wrapper around `htmlspecialchars()` with `ENT_QUOTES | ENT_SUBSTITUTE` and UTF-8.
-- **Security headers:**
-  - A Content Security Policy lets the browser load scripts, styles and images only from the site itself (plus GitHub avatars). Inline scripts are blocked, so even an escaping mistake can't run injected code.
-  - `frame-ancestors 'none'` stops clickjacking.
-  - `X-Content-Type-Options: nosniff` stops the browser guessing file types.
-  - `Referrer-Policy: same-origin` keeps URLs like `?user=...` from leaking to other sites.
-- **Safe links:** URLs that come from GitHub, such as avatars and personal websites, are only put into `href` or `src` after checking that they start with `http://` or `https://`. Escaping alone would still allow a `javascript:` link.
-- **Safe chart data:** chart data is passed as inert JSON. It is encoded with the `JSON_HEX_*` flags so it can never break out of its `<script>` tag.
-- **CSRF protection:** every POST form carries a random 64-character token stored in the session and checked with `hash_equals()`. The session cookie is also `SameSite=Lax`.
-- **Session hardening:**
-  - The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS. That includes running behind Render's proxy, detected through `X-Forwarded-Proto`.
-  - Strict mode rejects session IDs the server didn't create, and every new session gets a fresh ID, which blocks session fixation.
-- **API key protection:** the optional GitHub token comes from the `GITHUB_TOKEN` environment variable or a git-ignored `config/config.local.php`. It is only used in request headers that PHP sends to GitHub, and is never printed or sent to the browser.
-- **Upload validation:**
-  - Checks the upload error code, `is_uploaded_file()`, the `.csv` extension, a 2 MB size limit and the real MIME type (using `fileinfo`), plus a CSRF token on the upload form.
-  - Files are read straight from PHP's temporary upload location and never moved or stored.
-  - Parsing stops at 5,000 rows and 50 columns. Files saved by Excel in Windows-1252 are converted to UTF-8.
-  - After an upload the page redirects (Post/Redirect/Get), so refreshing never sends the file twice.
-- **CSV formula injection:** exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`. Spreadsheet apps then show them as text instead of running them as formulas. Real numbers such as `-3.5` are left alone, since a spreadsheet never reads them as formulas.
-- **Safe exports:** `export.php` only sends tables already in the visitor's own session, picked from a fixed list of names. Nothing from the URL becomes a file path, and the download file name is built from checked characters only.
-- **Session caching:** GitHub data is cached in the session for 10 minutes, one entry per user (profile and repositories together), at most 30 entries, keeping only the fields that are needed. Looking at the same user again costs no API requests, and no database or server-side files are needed. Once GitHub reports the hourly limit used up, RepoScope stops asking until the reset time, so a Compare upload fails fast instead of waiting on every user.
-- **Input whitelisting:**
-  - Chart types, column numbers and modes are checked against fixed lists.
-  - Usernames are checked against GitHub's rules: 1 to 39 characters, letters, digits and single hyphens.
-- **No raw errors:** PHP errors are logged but never displayed, and an uncaught exception shows a friendly error page.
-
-## Getting started
-
-### Requirements
-
-- PHP 8.5 or newer with the `openssl`, `mbstring` and `fileinfo` extensions (check with `php -v` and `php -m`).
-- Nothing else: no Composer, Node.js or database.
-
-### Run locally
-
-From the project folder:
-
-```bash
-php -S localhost:8000 -t public
-```
-
-Then open <http://localhost:8000>. The `-t public` option makes `public/` the web root, so the browser can never request files from `includes/` or `config/`.
-
-### Or run it in Docker
-
-No local PHP needed, only Docker. From the project folder (on Windows PowerShell, use `${PWD}` instead of `$(pwd)`):
+With Docker (no local PHP needed), run this from the project folder:
 
 ```bash
 docker run --rm -p 8000:8000 -v "$(pwd):/app" -w /app php:8.5-cli php -S 0.0.0.0:8000 -t public
 ```
 
-The official image already includes the `openssl`, `mbstring` and `fileinfo` extensions, and your edits show up straight away because the folder is mounted.
+In Windows PowerShell, use `${PWD}` instead of `$(pwd)`.
 
-### Optional: GitHub token
+With a local PHP 8.5 (the `openssl`, `mbstring` and `fileinfo` extensions must be enabled):
 
-Without a token, GitHub allows 60 API requests per hour per IP address. With a token, it allows 5,000. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new). It needs no extra permissions, because RepoScope only reads public data. Then do one of these:
+```bash
+php -S localhost:8000 -t public
+```
 
-- Set the `GITHUB_TOKEN` environment variable.
-- Or create `config/config.local.php` (it is git-ignored):
+Then open <http://localhost:8000>. The `-t public` flag makes `public/` the web root, so `includes/` and `config/` cannot be reached from the browser.
+
+The sample files in [`public/samples/`](public/samples) let you try the app without your own data: `sales.csv` for Analyze and `developers.csv` for Compare.
+
+### GitHub token (optional)
+
+GitHub allows 60 unauthenticated requests per hour per IP address, and 5,000 with a token. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) with no extra permissions (RepoScope only reads public data). Then either set the `GITHUB_TOKEN` environment variable or create the git-ignored file `config/config.local.php`:
 
 ```php
 <?php
-return ['github_token' => 'paste-your-token-here'];
+return ['github_token' => 'your-token'];
 ```
 
-> **Windows tip:** in `php.ini`, enable `extension=openssl`, `extension=mbstring` and `extension=fileinfo`. Also set `openssl.cafile` to a CA certificate bundle such as [cacert.pem from curl.se](https://curl.se/docs/caextract.html). Without it, PHP can't verify GitHub's HTTPS certificate.
+## How it works
 
-> **Windows tip:** if PHP warns that "An Application Control policy has blocked" `php_openssl.dll`, Windows Smart App Control is blocking the unsigned extension, and every GitHub lookup fails with "Could not reach GitHub". Use the Docker command above instead.
+Every data source is converted into the same table shape, so one set of statistics functions, chart builders and the CSV exporter serves all modes:
 
-## Running tests
+```php
+[
+    'headers' => ['Repository', 'Language', 'Stars'],
+    'rows'    => [
+        ['repo-a', 'PHP', 120],
+        ['repo-b', 'JavaScript', 45],
+    ],
+]
+```
 
-_(Phase 5)_ Unit tests use PHPUnit, run from a single `.phar` file (no Composer). They will cover:
+```text
+   GitHub REST API                       CSV upload
+         |                                   |
+   includes/github.php                 includes/csv.php
+   fetch, trim, session cache          validate, parse, detect headers
+         |                                   |
+         +---------------+-------------------+
+                         |
+              { headers, rows } table
+                         |
+       +-----------------+------------------+
+       |                 |                  |
+ includes/stats.php   chart builders     public/export.php
+ summary statistics   JSON -> charts.js  CSV download
+```
 
-- username validation and numeric column detection
-- every statistics function
-- CSV parsing edge cases (BOM, empty cells, short rows)
-- the formula-injection sanitizer
-- conversion of GitHub data into the table shape
+Each request follows the same steps:
 
-They use saved JSON fixtures instead of calling the real API. Instructions will be added with the tests.
+1. The page loads `includes/bootstrap.php`, which sets up error handling, security headers and the session.
+2. Input is validated: whitelists for options, GitHub's own rules for usernames, and a CSRF token on every POST.
+3. Data comes from the session cache or from GitHub and is converted into a table.
+4. `session_write_close()` releases the session lock early so other tabs are not blocked.
+5. PHP renders the page. Chart data is embedded as JSON and `js/charts.js` draws it.
 
-## Deployment
+Uploads use Post/Redirect/Get, so refreshing a result page never re-sends the file.
 
-_(Phase 5)_ RepoScope will ship with a `Dockerfile` based on the official PHP + Apache image, with the document root set to `public/`. It will be ready to deploy as a Docker web service on [Render](https://render.com), with the GitHub token set there as the `GITHUB_TOKEN` environment variable.
+## Security
+
+| Risk | Mitigation |
+| --- | --- |
+| Cross-site scripting | All output goes through `e()` (`htmlspecialchars` with `ENT_QUOTES \| ENT_SUBSTITUTE`). A Content Security Policy blocks inline scripts as a second layer. Chart data is encoded with the `JSON_HEX_*` flags so it cannot close its `<script>` tag. |
+| Malicious links | URLs from GitHub (avatars, websites) are used only when they start with `http://` or `https://`, so a `javascript:` link is rejected. |
+| CSRF | Every POST form carries a 64-character random token, checked with `hash_equals()`. Cookies are `SameSite=Lax`. |
+| Session hijacking and fixation | `HttpOnly` and `Secure` cookies (also behind a proxy, through `X-Forwarded-Proto`), strict session mode, and a fresh session ID for every new session. |
+| Clickjacking and content sniffing | `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`. |
+| Hostile uploads | The upload error code, `is_uploaded_file()`, the `.csv` extension, a 2 MB limit and the real MIME type through `fileinfo` are all checked. Files are read from PHP's temp folder and never stored. Parsing stops at 5,000 rows and 50 columns. |
+| CSV formula injection | Exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`, so spreadsheets show them as text. Real numbers are left alone. |
+| Path tricks in exports | `export.php` serves only tables already stored in the visitor's session, chosen from a fixed list. The download name is built from safe characters only. |
+| Token leaks | The GitHub token comes from the environment or a git-ignored file and is sent only to GitHub. It never reaches the browser. |
+| Information leaks | Errors are logged, never displayed. Uncaught exceptions show a generic error page. |
+
+## Configuration
+
+All limits are in [`config/config.php`](config/config.php):
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `CACHE_TTL` | 600 | Seconds a GitHub result stays cached in the session |
+| `CACHE_MAX_ENTRIES` | 30 | Users kept in the cache before the oldest is dropped |
+| `GITHUB_MAX_PAGES` | 3 | Pages of 100 repositories fetched per user (300 at most) |
+| `GITHUB_TIMEOUT` | 10 | Seconds to wait for each GitHub request |
+| `COMPARE_MAX_USERS` | 15 | Usernames accepted per Compare upload |
+| `UPLOAD_MAX_BYTES` | 2 MB | Largest CSV upload |
+| `CSV_MAX_ROWS` / `CSV_MAX_COLS` | 5,000 / 50 | Rows and columns read from a CSV |
+| `NUMERIC_THRESHOLD` | 0.8 | Share of filled cells that must be numbers for a column to count as numeric |
 
 ## Project structure
 
 ```text
 RepoScope/
-├── public/                    web root: the only folder the browser can reach
-│   ├── index.php              home page: pick a mode
-│   ├── profile.php            Profile mode
-│   ├── analyze.php            Analyze mode
-│   ├── compare.php            Compare mode
-│   ├── export.php             CSV download of any result table
-│   ├── samples/               sample CSVs: sales.csv (Analyze), developers.csv (Compare)
-│   ├── js/charts.js           canvas chart functions
-│   ├── js/ui.js               form feedback ("Looking up…")
-│   ├── js/vendor/gsap.min.js  GSAP 3.15 (own licence, see below)
-│   ├── css/style.css          the transit theme and chart colours
-│   ├── fonts/                 Hanken Grotesk (self-hosted, OFL licence inside)
-│   └── favicon.svg
+├── public/                  web root (the only folder the browser can reach)
+│   ├── index.php            home page
+│   ├── profile.php          Profile mode
+│   ├── compare.php          Compare mode
+│   ├── analyze.php          Analyze mode
+│   ├── export.php           CSV download of any result table
+│   ├── samples/             sample CSVs for Analyze and Compare
+│   ├── css/style.css        theme and chart colours
+│   ├── js/charts.js         canvas charts
+│   ├── js/ui.js             form feedback
+│   ├── js/vendor/           GSAP 3.15
+│   └── fonts/               Hanken Grotesk (self-hosted)
 ├── includes/
-│   ├── bootstrap.php          error handling, security headers, session
-│   ├── helpers.php            escaping, validation, CSRF
-│   ├── layout.php             header, navigation, footer
-│   ├── github.php             GitHub API client, session cache, Compare leaderboard
-│   ├── csv.php                upload validation, parsing and safe CSV writing
-│   └── stats.php              statistics, column type detection, chart-data builders
-├── config/
-│   ├── config.php             limits and defaults
-│   └── config.local.php       your GitHub token (optional, git-ignored)
-├── tests/                     PHPUnit tests *
-├── .github/workflows/ci.yml   GitHub Actions workflow *
-├── Dockerfile                 container image for Render *
-├── LICENSE
-└── README.md
+│   ├── bootstrap.php        error handling, security headers, session
+│   ├── helpers.php          escaping, validation, CSRF
+│   ├── layout.php           page shell, tables, chart panels
+│   ├── github.php           GitHub client, cache, Compare leaderboard
+│   ├── csv.php              upload checks, parser, safe CSV writer
+│   └── stats.php            statistics and chart-data builders
+├── config/config.php        limits and the optional token
+└── docs/screenshots/        images used in this README
 ```
-
-`*` = added in a later phase (see the roadmap).
 
 ## Roadmap
 
-- [x] **Phase 1:** config, bootstrap (error handling, security headers, session), helpers, layout, home page, CSS theme
-- [x] **Phase 2:** GitHub API client with session cache, Profile mode, canvas charts
-- [x] **Phase 3:** CSV upload and parsing, statistics, Analyze mode
-- [x] **Phase 4:** Compare mode, CSV export with formula-injection protection
-- [ ] **Phase 5:** PHPUnit tests, GitHub Actions CI, Dockerfile, deployment
+- [x] Security foundations, layout and theme
+- [x] GitHub client with session cache, Profile mode, canvas charts
+- [x] CSV parsing, statistics, Analyze mode
+- [x] Compare mode, CSV export with formula-injection protection
+- [ ] PHPUnit tests (a single `.phar`, no Composer) with saved API fixtures
+- [ ] GitHub Actions CI on PHP 8.5
+- [ ] Dockerfile (official PHP and Apache image) and deployment on Render
+
+## Troubleshooting
+
+- **"Could not reach GitHub" on Windows:** enable `extension=openssl`, `extension=mbstring` and `extension=fileinfo` in `php.ini`, and set `openssl.cafile` to a CA bundle such as [cacert.pem](https://curl.se/docs/caextract.html).
+- **"An Application Control policy has blocked php_openssl.dll":** Windows Smart App Control is blocking the unsigned extension. Run the app with the Docker command above instead.
+- **Rate limit reached:** wait for the reset time shown on the page, or add a GitHub token.
 
 ## What I learned
 
-<!-- Draft based on what came up while building. Rewrite it in your own words as you go. -->
+- PHP holds the session lock for the whole request, so calling `session_write_close()` early keeps other tabs responsive.
+- Security works in layers: escaping and a CSP, CSRF tokens and `SameSite` cookies.
+- Behind a reverse proxy such as Render, PHP only sees HTTP. The original scheme arrives in `X-Forwarded-Proto`.
+- A canvas has to be scaled by `devicePixelRatio`, and tooltips need their own hit-testing.
+- File extensions prove nothing: `fileinfo` checks the bytes, and `is_uploaded_file()` proves the upload is real.
+- When a request exceeds `post_max_size`, PHP silently empties `$_POST` and `$_FILES`.
+- Excel writes "CSV" as Windows-1252 and reads UTF-8 only when the file starts with a byte order mark.
+- Only correctly grouped commas are thousands separators: `1,234` is a number, `1,23` is not.
+- Exported CSVs can carry formulas, so cells starting with `=`, `+`, `-` or `@` need defusing.
 
-- PHP locks the session file for the whole request, so calling `session_write_close()` early keeps other tabs from waiting.
-- Security works in layers: escaping output _and_ a Content Security Policy, CSRF tokens _and_ `SameSite` cookies.
-- What session fixation is, and how `session.use_strict_mode` plus `session_regenerate_id()` prevent it.
-- Behind a reverse proxy such as Render, PHP only sees plain HTTP. The original scheme arrives in the `X-Forwarded-Proto` header.
-- Languages keep moving: PHP 8.5 deprecates `$http_response_header` in favour of `http_get_last_response_headers()`.
-- How to pick chart colours that stay distinguishable for colour-blind users, and check them with a validator instead of by eye.
-- How to run a modern PHP next to XAMPP on Windows: `php.ini`, extensions and CA certificates.
-- A canvas needs its pixel buffer scaled by `devicePixelRatio`, or charts look blurry on high-DPI screens.
-- Tooltips on a canvas mean doing your own hit-testing: working out which bar, slice or point is under the pointer.
-- GitHub allows 60 unauthenticated requests per hour per IP address, shared with everything else on the same network, so caching and counting requests matter.
-- A file's extension is just part of its name. `fileinfo` checks what the bytes really are, and `is_uploaded_file()` proves PHP received the file in this request.
-- When a request is bigger than `post_max_size`, PHP silently empties `$_POST` and `$_FILES`, so "file too big" has to be detected from `CONTENT_LENGTH`.
-- Post/Redirect/Get: answering a form POST with a redirect stops the browser from re-sending it on refresh.
-- Excel saves "CSV" in Windows-1252 and "CSV UTF-8" with a byte order mark, so a parser has to handle both.
-- "1,234" and "1,23" look alike, but only correctly grouped commas are thousands separators.
-- CSV formula injection: a cell like `=HYPERLINK(...)` in an exported file runs as a formula when someone opens it in a spreadsheet, so exports have to defuse it.
-- A download is just a response with the right headers: `Content-Type: text/csv` and `Content-Disposition: attachment` make the browser save it, and `php://output` streams it without a temporary file.
-- Excel only reads a CSV as UTF-8 when it starts with a byte order mark.
+## Credits and license
 
-## License
+Released under the [MIT License](LICENSE). Copyright 2026 Divyansh Garg.
 
-[MIT](LICENSE) © 2026 Divyansh Garg
-
-`public/js/vendor/gsap.min.js` is GSAP by GreenSock, included unchanged under its own [Standard "No Charge" License](https://gsap.com/standard-license), not the MIT licence. The Hanken Grotesk font files in `public/fonts/` are under the SIL Open Font License ([OFL.txt](public/fonts/OFL.txt)).
+- [GSAP](https://gsap.com) by GreenSock (`public/js/vendor/gsap.min.js`), included unchanged under its [Standard "No Charge" License](https://gsap.com/standard-license).
+- [Hanken Grotesk](https://fonts.google.com/specimen/Hanken+Grotesk) under the SIL Open Font License ([OFL.txt](public/fonts/OFL.txt)).
+- Interface guidance from [Impeccable](https://impeccable.style), [transitions.dev](https://transitions.dev) and [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better).
