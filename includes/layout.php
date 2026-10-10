@@ -4,8 +4,35 @@ declare(strict_types=1);
 
 // Shared page markup. Pages call render_header(), print their content, then render_footer().
 
-function render_header(string $title, string $active = ''): void
+// Absolute URL for the current host, for canonical and Open Graph tags. The Host header is
+// client-controlled, so anything that isn't a plain host[:port] falls back to localhost.
+function site_url(string $path = '/'): string
 {
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    if (!preg_match('/^[A-Za-z0-9.-]+(:\d{1,5})?$/', $host)) {
+        $host = 'localhost';
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    return ($https ? 'https://' : 'http://') . $host . $path;
+}
+
+// $meta keys: description (string), query (canonical query string), noindex (bool)
+function render_header(string $title, string $active = '', array $meta = []): void
+{
+    $descriptions = [
+        'home'    => 'Look up any GitHub developer, compare a group, or analyze a CSV file. RepoScope turns them into statistics and interactive charts.',
+        'profile' => 'Languages, most-starred repositories and repositories per year for any public GitHub user.',
+        'compare' => 'Upload a CSV of up to 15 GitHub usernames and get a leaderboard with charts for stars, followers, repositories and languages.',
+        'analyze' => 'Upload a CSV file to detect column types, get summary statistics and chart any grouping as a bar, line or pie chart.',
+    ];
+    $description = (string) ($meta['description'] ?? $descriptions[$active] ?? $descriptions['home']);
+    $fullTitle = $active === 'home' ? 'RepoScope · GitHub profiles and CSV files as charts' : $title . ' · RepoScope';
+    $script = basename((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+    $canonicalPath = in_array($script, ['', 'index.php'], true) ? '/' : '/' . $script;
+    $canonical = site_url($canonicalPath . (($meta['query'] ?? '') !== '' ? '?' . $meta['query'] : ''));
+    $image = site_url('/og-image.png');
+    $imageAlt = 'RepoScope: GitHub profiles and CSV files turned into statistics and charts';
     $nav = [
         'home'    => ['index.php', 'Home'],
         'profile' => ['profile.php', 'Profile'],
@@ -20,7 +47,26 @@ function render_header(string $title, string $active = ''): void
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title><?= e($title) ?> · RepoScope</title>
+        <title><?= e($fullTitle) ?></title>
+        <meta name="description" content="<?= e($description) ?>">
+        <meta name="robots" content="<?= !empty($meta['noindex']) ? 'noindex, nofollow' : 'index, follow' ?>">
+        <meta name="theme-color" content="#000000">
+        <link rel="canonical" href="<?= e($canonical) ?>">
+        <meta property="og:site_name" content="RepoScope">
+        <meta property="og:type" content="website">
+        <meta property="og:locale" content="en_US">
+        <meta property="og:title" content="<?= e($fullTitle) ?>">
+        <meta property="og:description" content="<?= e($description) ?>">
+        <meta property="og:url" content="<?= e($canonical) ?>">
+        <meta property="og:image" content="<?= e($image) ?>">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="<?= e($imageAlt) ?>">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="<?= e($fullTitle) ?>">
+        <meta name="twitter:description" content="<?= e($description) ?>">
+        <meta name="twitter:image" content="<?= e($image) ?>">
+        <meta name="twitter:image:alt" content="<?= e($imageAlt) ?>">
         <link rel="icon" href="favicon.svg" type="image/svg+xml">
         <link rel="preload" href="fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
         <link rel="stylesheet" href="css/style.css">

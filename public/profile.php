@@ -63,7 +63,15 @@ if ($result !== null) {
     }
 }
 
-render_header($result !== null ? $profile['login'] . ' · Profile' : 'Profile', 'profile');
+render_header(
+    $result !== null ? $profile['login'] . ' · Profile' : 'Profile',
+    'profile',
+    $result !== null ? [
+        'description' => 'GitHub profile of ' . ($profile['name'] !== '' ? $profile['name'] . ' (@' . $profile['login'] . ')' : '@' . $profile['login'])
+            . ': languages, most-starred repositories and repositories created per year.',
+        'query' => 'user=' . rawurlencode($profile['login']),
+    ] : []
+);
 ?>
 <section class="page-head">
     <div>

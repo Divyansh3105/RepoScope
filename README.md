@@ -158,6 +158,8 @@ RepoScope/
 │   ├── analyze.php          Analyze mode
 │   ├── export.php           CSV download of any result table
 │   ├── samples/             sample CSVs for Analyze and Compare
+│   ├── og-image.png         1200x630 preview image for link sharing
+│   ├── robots.txt           keeps crawlers away from the export endpoint
 │   ├── css/style.css        theme and chart colours
 │   ├── js/charts.js         canvas charts
 │   ├── js/ui.js             form feedback

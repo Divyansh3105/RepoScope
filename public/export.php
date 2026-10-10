@@ -41,7 +41,7 @@ session_write_close();
 
 if ($table === null) {
     http_response_code(404);
-    render_header('Export');
+    render_header('Export', '', ['noindex' => true]);
 ?>
     <div class="alert" role="alert">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
