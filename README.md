@@ -9,7 +9,7 @@ RepoScope turns GitHub profiles and CSV files into statistics and interactive ch
 
 ![RepoScope profile page for Divyansh3105 showing a language donut, most-starred repositories and profile figures](docs/screenshots/profile.png)
 
-**Status:** all four modes are complete. Unit tests, continuous integration and deployment are still in progress (see the [roadmap](#roadmap)).
+**Status:** all four modes are complete (see the [roadmap](#roadmap)).
 
 ## Contents
 
@@ -180,9 +180,6 @@ RepoScope/
 - [x] GitHub client with session cache, Profile mode, canvas charts
 - [x] CSV parsing, statistics, Analyze mode
 - [x] Compare mode, CSV export with formula-injection protection
-- [ ] PHPUnit tests (a single `.phar`, no Composer) with saved API fixtures
-- [ ] GitHub Actions CI on PHP 8.5
-- [ ] Dockerfile (official PHP and Apache image) and deployment on Render
 
 ## Troubleshooting
 
