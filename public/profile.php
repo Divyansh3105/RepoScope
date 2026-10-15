@@ -49,7 +49,7 @@ if ($result !== null) {
     $forks = count($result['repos']) - count($table['rows']);
     $minutesOld = intdiv(time() - $result['fetched'], 60);
     $facts = [
-        'Public repositories' => $profile['repos'],
+        'Own repositories'    => count($table['rows']), // forks are left out, like the charts
         'Stars earned'        => array_sum(array_column($table['rows'], $col['Stars'])),
         'Followers'           => $profile['followers'],
         'Following'           => $profile['following'],
