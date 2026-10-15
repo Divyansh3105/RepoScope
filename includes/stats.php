@@ -122,13 +122,15 @@ function number_stats(array $numbers): array
     sort($numbers);
     $sum = array_sum($numbers);
     $middle = intdiv($count, 2);
+    // adding finite numbers can still overflow to INF, which json_encode refuses
+    $finite = fn(int|float $n): int|float|null => is_finite($n) ? $n : null;
     return [
         'count'  => $count,
-        'sum'    => $sum,
+        'sum'    => $finite($sum),
         'min'    => $numbers[0],
         'max'    => $numbers[$count - 1],
-        'mean'   => $sum / $count,
-        'median' => $count % 2 === 1 ? $numbers[$middle] : ($numbers[$middle - 1] + $numbers[$middle]) / 2,
+        'mean'   => $finite($sum / $count),
+        'median' => $finite($count % 2 === 1 ? $numbers[$middle] : ($numbers[$middle - 1] + $numbers[$middle]) / 2),
     ];
 }
 
@@ -148,11 +150,16 @@ function chart_group(array $table, int $groupCol, int $valueCol, string $calc, s
         $counts[$group] = ($counts[$group] ?? 0) + 1;
     }
 
+    $labels = [];
     $values = [];
     foreach ($sums as $group => $sum) {
-        $values[] = $calc === 'avg' ? $sum / $counts[$group] : $sum;
+        $value = $calc === 'avg' ? $sum / $counts[$group] : $sum;
+        if (is_finite($value)) { // a sum of huge numbers can overflow to INF
+            $labels[] = (string) $group;
+            $values[] = $value;
+        }
     }
-    return ['title' => $title, 'labels' => array_map('strval', array_keys($sums)), 'values' => $values];
+    return ['title' => $title, 'labels' => $labels, 'values' => $values];
 }
 
 // One row of stats per number column. Skipped = empty or non-numeric cells.
