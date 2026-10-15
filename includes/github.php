@@ -106,12 +106,12 @@ function cache_get(array $cache, string $key, int $now): ?array
     return $entry !== null && $now - $entry['time'] < CACHE_TTL ? $entry['data'] : null;
 }
 
-// Stores $data and drops expired entries, keeping at most CACHE_MAX_ENTRIES (newest last).
+// Stores $data, keeping at most CACHE_MAX_ENTRIES (newest last). Expired entries stay until
+// pushed out: cache_get() ignores them, and export.php still needs them for open pages.
 function cache_put(array $cache, string $key, array $data, int $now): array
 {
     unset($cache[$key]); // so the re-added key moves to the end
     $cache[$key] = ['time' => $now, 'data' => $data];
-    $cache = array_filter($cache, fn(array $entry): bool => $now - $entry['time'] < CACHE_TTL);
     return array_slice($cache, -CACHE_MAX_ENTRIES, null, true);
 }
 
