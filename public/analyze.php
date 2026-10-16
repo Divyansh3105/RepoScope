@@ -22,11 +22,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '') {
-        // TODO: the whole table (up to ~2 MB) sits in the session; cap it if this ever runs on a shared host
+        // the table lives in the session file and is read back on every page view, so keep it small
+        $table = $parsed['table'];
+        $notes = $parsed['notes'];
+        $size = strlen(serialize($table));
+        if ($size > SESSION_TABLE_MAX_BYTES) {
+            $keep = max(1, intdiv(count($table['rows']) * SESSION_TABLE_MAX_BYTES, $size));
+            $table['rows'] = array_slice($table['rows'], 0, $keep);
+            $notes[] = 'The file is large, so only the first ' . number_format($keep) . ' rows were kept';
+        }
         $_SESSION['analyze'] = [
             'name'  => mb_substr(basename((string) $_FILES['csv']['name']), 0, 100),
-            'table' => $parsed['table'],
-            'notes' => $parsed['notes'],
+            'table' => $table,
+            'notes' => $notes,
         ];
         $_SESSION['analyze_fresh'] = true; // animate the chart on the next view
 

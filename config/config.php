@@ -26,3 +26,4 @@ const UPLOAD_MAX_BYTES  = 2 * 1024 * 1024; // 2 MB
 const CSV_MAX_ROWS      = 5000;
 const CSV_MAX_COLS      = 50;
 const NUMERIC_THRESHOLD = 0.8; // share of filled cells that must be numbers
+const SESSION_TABLE_MAX_BYTES = 512 * 1024; // largest uploaded table kept in the session
