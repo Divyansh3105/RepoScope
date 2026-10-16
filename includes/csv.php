@@ -82,6 +82,10 @@ function csv_parse(string $text): array
     }
 
     $width = max(array_map('count', $rows));
+    // European Excel saves with semicolons; say so instead of showing one long column
+    if ($width === 1 && preg_match('/^[^\r\n]*[;\t]/', $text) === 1) {
+        $notes[] = 'Only one column was found, but the first line has semicolons or tabs. RepoScope reads comma-separated files only';
+    }
     if ($width > CSV_MAX_COLS) {
         $width = CSV_MAX_COLS;
         $notes[] = 'Only the first ' . CSV_MAX_COLS . ' columns were read';
