@@ -48,7 +48,7 @@ function csv_upload_error(mixed $file): string
 
 // Parses CSV text into ['table' => [...], 'notes' => [...]] or ['error' => message].
 // Strips a BOM, converts Windows-1252 (Excel's default) to UTF-8, skips blank lines and
-// pads short rows. The first row is the header unless it contains a number.
+// pads short rows. The first row is the header unless every cell in it is a number.
 function csv_parse(string $text): array
 {
     $notes = [];
@@ -88,10 +88,11 @@ function csv_parse(string $text): array
     }
     $rows = array_map(fn(array $row): array => array_pad(array_slice($row, 0, $width), $width, ''), $rows);
 
-    $hasHeader = array_filter($rows[0], fn(string $cell): bool => parse_number($cell) !== null) === [];
+    // a header can hold numbers too ("name,2023,2024"); only an all-number row is data
+    $hasHeader = array_filter($rows[0], fn(string $cell): bool => $cell !== '' && parse_number($cell) === null) !== [];
     $first = $hasHeader ? array_shift($rows) : [];
     if (!$hasHeader) {
-        $notes[] = 'The first row holds numbers, so it was read as data and the columns were numbered';
+        $notes[] = 'The first row holds only numbers, so it was read as data and the columns were numbered';
     }
     $headers = [];
     for ($i = 0; $i < $width; $i++) {

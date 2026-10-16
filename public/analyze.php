@@ -227,7 +227,7 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
         <h2>Start with a CSV file</h2>
         <ul class="rules">
             <li>Up to <?= UPLOAD_MAX_BYTES / 1048576 ?> MB, <?= number_format(CSV_MAX_ROWS) ?> rows and <?= CSV_MAX_COLS ?> columns, separated by commas.</li>
-            <li>The first row is used as column names, unless it holds a number.</li>
+            <li>The first row is used as column names, unless every cell in it is a number.</li>
             <li>A column counts as numbers when at least <?= NUMERIC_THRESHOLD * 100 ?>% of its filled cells are numbers.</li>
             <li>The file itself is never stored. Its table stays in your session until the session ends.</li>
         </ul>
