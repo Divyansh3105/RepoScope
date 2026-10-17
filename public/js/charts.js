@@ -664,4 +664,22 @@ function setUpChart(canvas) {
   });
 }
 
-document.querySelectorAll("canvas[data-chart]").forEach(setUpChart);
+// one broken chart must not stop the rest; the data table under it still has the numbers
+function showChartError(canvas) {
+  const message = document.createElement("p");
+  message.className = "muted";
+  message.setAttribute("role", "alert");
+  message.textContent =
+    "This chart could not be drawn. The data table below has the same numbers.";
+  const body = canvas.closest(".chart-body");
+  (body || canvas).replaceWith(message);
+}
+
+document.querySelectorAll("canvas[data-chart]").forEach((canvas) => {
+  try {
+    setUpChart(canvas);
+  } catch (error) {
+    console.error(error);
+    showChartError(canvas);
+  }
+});
