@@ -21,6 +21,7 @@ RepoScope turns GitHub profiles and CSV files into statistics and interactive ch
 - [Configuration](#configuration)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
+- [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
 - [What I learned](#what-i-learned)
 - [Credits and license](#credits-and-license)
@@ -112,7 +113,7 @@ Each request follows the same steps:
 1. The page loads `includes/bootstrap.php`, which sets up error handling, security headers and the session.
 2. Input is validated: whitelists for options, GitHub's own rules for usernames, and a CSRF token on every POST.
 3. Data comes from the session cache or from GitHub and is converted into a table.
-4. `session_write_close()` releases the session lock early so other tabs are not blocked.
+4. `session_write_close()` releases the session lock early, and before any GitHub request, so other tabs are not blocked. The session is reopened afterwards to save the result.
 5. PHP renders the page. Chart data is embedded as JSON and `js/charts.js` draws it.
 
 Uploads use Post/Redirect/Get, so refreshing a result page never re-sends the file.
@@ -146,6 +147,7 @@ All limits are in [`config/config.php`](config/config.php):
 | `UPLOAD_MAX_BYTES` | 2 MB | Largest CSV upload |
 | `CSV_MAX_ROWS` / `CSV_MAX_COLS` | 5,000 / 50 | Rows and columns read from a CSV |
 | `NUMERIC_THRESHOLD` | 0.8 | Share of filled cells that must be numbers for a column to count as numeric |
+| `SESSION_TABLE_MAX_BYTES` | 512 KB | Largest uploaded table kept in the session; bigger files keep their first rows |
 
 ## Project structure
 
@@ -173,6 +175,7 @@ RepoScope/
 │   ├── csv.php              upload checks, parser, safe CSV writer
 │   └── stats.php            statistics and chart-data builders
 ├── config/config.php        limits and the optional token
+├── tests/check.php          regression checks, run with php tests/check.php
 └── docs/screenshots/        images used in this README
 ```
 
@@ -182,6 +185,15 @@ RepoScope/
 - [x] GitHub client with session cache, Profile mode, canvas charts
 - [x] CSV parsing, statistics, Analyze mode
 - [x] Compare mode, CSV export with formula-injection protection
+- [x] Audit fixes and a regression check script
+
+## Tests
+
+`tests/check.php` runs plain assertions over number parsing, CSV parsing and export escaping, the statistics, the session cache and GitHub error messages. It needs no framework and no network:
+
+```bash
+php tests/check.php
+```
 
 ## Troubleshooting
 
