@@ -104,13 +104,7 @@ render_header(
 </section>
 
 <?php if ($error !== ''): ?>
-    <div class="alert" id="lookup-error" role="alert">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8" />
-            <path d="M10 6v5M10 14h.01" />
-        </svg>
-        <p><strong>Error:</strong> <?= e($error) ?></p>
-    </div>
+    <?= alert_html('error', '<strong>Error:</strong> ' . e($error), 'lookup-error') ?>
 <?php endif; ?>
 
 <?php if ($result !== null): ?>

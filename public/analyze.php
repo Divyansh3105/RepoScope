@@ -142,16 +142,17 @@ render_header($dataset !== null ? $dataset['name'] . ' · Analyze' : 'Analyze', 
 </section>
 
 <?php if ($error !== ''): ?>
-    <div class="alert" id="upload-error" role="alert">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8" />
-            <path d="M10 6v5M10 14h.01" />
-        </svg>
-        <p><strong>Error:</strong> <?= e($error) ?></p>
-    </div>
+    <?= alert_html('error', '<strong>Error:</strong> ' . e($error), 'upload-error') ?>
 <?php endif; ?>
 
 <?php if ($dataset !== null): ?>
+    <?php if ($fresh): // only on the view right after an upload ?>
+        <?= alert_html(
+            'success',
+            '<strong>File loaded:</strong> ' . e($dataset['name']) . ' has ' . number_format($rowCount) . ($rowCount === 1 ? ' row' : ' rows')
+                . ' and ' . count($headers) . (count($headers) === 1 ? ' column' : ' columns') . '.'
+        ) ?>
+    <?php endif; ?>
     <ul class="status" aria-label="About this file">
         <li><?= e($dataset['name']) ?></li>
         <li><?= number_format($rowCount) ?> <?= $rowCount === 1 ? 'row' : 'rows' ?>, <?= count($headers) ?> <?= count($headers) === 1 ? 'column' : 'columns' ?></li>

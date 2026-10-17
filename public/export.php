@@ -41,19 +41,16 @@ session_write_close();
 
 if ($table === null) {
     http_response_code(404);
-    render_header('Export', '', ['noindex' => true]);
-?>
-    <div class="alert" role="alert">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8" />
-            <path d="M10 6v5M10 14h.01" />
-        </svg>
-        <p><strong>Nothing to export:</strong> that table isn't in your session any more.
-            Open <a href="profile.php">Profile</a>, <a href="compare.php">Compare</a> or
-            <a href="analyze.php">Analyze</a> again and use the table's Export CSV link.
-        </p>
-    </div>
-<?php
+    render_header('Nothing to export', '', [
+        'noindex'     => true,
+        'description' => 'That table is no longer in your session. Open Profile, Compare or Analyze again to export it.',
+    ]);
+    echo alert_html(
+        'error',
+        "<strong>Nothing to export:</strong> that table isn't in your session any more. "
+            . 'Open <a href="profile.php">Profile</a>, <a href="compare.php">Compare</a> or '
+            . '<a href="analyze.php">Analyze</a> again and use the Export CSV link on the table.'
+    );
     render_footer();
     exit;
 }

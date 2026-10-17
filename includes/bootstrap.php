@@ -21,10 +21,12 @@ set_exception_handler(function (Throwable $e): void {
     error_log((string) $e);
     if (!headers_sent()) {
         http_response_code(500);
-        render_header('Error');
+        render_header('Something went wrong', '', [
+            'noindex'     => true,
+            'description' => 'Something went wrong on our side. Please try again.',
+        ]);
     }
-    echo '<div class="alert alert-error" role="alert"><strong>Error:</strong> '
-        . 'something went wrong on our side. Please try again.</div>';
+    echo alert_html('error', '<strong>Error:</strong> something went wrong on our side. Please try again.');
     render_footer();
 });
 

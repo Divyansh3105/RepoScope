@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         // only animate when something new came from GitHub
         $_SESSION['compare_fresh'] = count($entries) > $cached;
+        $_SESSION['compare_done'] = true; // success message on the next view
 
         header('Location: compare.php', true, 303);
         exit;
@@ -78,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $compare = $_SESSION['compare'] ?? null;
 $fresh = !empty($_SESSION['compare_fresh']);
-unset($_SESSION['compare_fresh']);
+$done = isset($_SESSION['compare_done']);
+unset($_SESSION['compare_fresh'], $_SESSION['compare_done']);
 $rate = $_SESSION['github_rate'] ?? null;
 
 session_write_close();
@@ -116,16 +118,17 @@ render_header('Compare', 'compare');
 </section>
 
 <?php if ($error !== ''): ?>
-    <div class="alert" id="upload-error" role="alert">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10" cy="10" r="8" />
-            <path d="M10 6v5M10 14h.01" />
-        </svg>
-        <p><strong>Error:</strong> <?= e($error) ?></p>
-    </div>
+    <?= alert_html('error', '<strong>Error:</strong> ' . e($error), 'upload-error') ?>
 <?php endif; ?>
 
 <?php if ($compare !== null): ?>
+    <?php if ($done && $users > 0): ?>
+        <?= alert_html(
+            'success',
+            '<strong>Comparison ready:</strong> ' . $users . ($users === 1 ? ' user' : ' users') . ' compared'
+                . ($compare['failed'] !== [] ? ', ' . count($compare['failed']) . ' could not be loaded (listed below).' : '.')
+        ) ?>
+    <?php endif; ?>
     <ul class="status" aria-label="About this comparison">
         <li><?= e($compare['name']) ?></li>
         <li><?= $users ?> <?= $users === 1 ? 'user' : 'users' ?> compared</li>
