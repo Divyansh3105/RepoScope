@@ -20,6 +20,8 @@ function site_url(string $path = '/'): string
 // $meta keys: description (string), query (canonical query string), noindex (bool)
 function render_header(string $title, string $active = '', array $meta = []): void
 {
+    $root = (string) ($meta['root'] ?? ''); // '/' for pages served from any URL depth (the 404)
+    $noindex = !empty($meta['noindex']);
     $descriptions = [
         'home'    => 'Look up any GitHub developer, compare a group, or analyze a CSV file. RepoScope turns them into statistics and interactive charts.',
         'profile' => 'Languages, most-starred repositories and repositories per year for any public GitHub user.',
@@ -49,9 +51,11 @@ function render_header(string $title, string $active = '', array $meta = []): vo
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($fullTitle) ?></title>
         <meta name="description" content="<?= e($description) ?>">
-        <meta name="robots" content="<?= !empty($meta['noindex']) ? 'noindex, nofollow' : 'index, follow' ?>">
+        <meta name="robots" content="<?= $noindex ? 'noindex, nofollow' : 'index, follow' ?>">
         <meta name="theme-color" content="#000000">
-        <link rel="canonical" href="<?= e($canonical) ?>">
+        <?php if (!$noindex): ?>
+            <link rel="canonical" href="<?= e($canonical) ?>">
+        <?php endif; ?>
         <meta property="og:site_name" content="RepoScope">
         <meta property="og:type" content="website">
         <meta property="og:locale" content="en_US">
@@ -67,19 +71,19 @@ function render_header(string $title, string $active = '', array $meta = []): vo
         <meta name="twitter:description" content="<?= e($description) ?>">
         <meta name="twitter:image" content="<?= e($image) ?>">
         <meta name="twitter:image:alt" content="<?= e($imageAlt) ?>">
-        <link rel="icon" href="favicon.svg" type="image/svg+xml">
-        <link rel="preload" href="fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-        <link rel="stylesheet" href="css/style.css">
-        <script src="js/vendor/gsap.min.js" defer></script>
-        <script src="js/charts.js" defer></script>
-        <script src="js/ui.js" defer></script>
+        <link rel="icon" href="<?= e($root) ?>favicon.svg" type="image/svg+xml">
+        <link rel="preload" href="<?= e($root) ?>fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+        <link rel="stylesheet" href="<?= e($root) ?>css/style.css">
+        <script src="<?= e($root) ?>js/vendor/gsap.min.js" defer></script>
+        <script src="<?= e($root) ?>js/charts.js" defer></script>
+        <script src="<?= e($root) ?>js/ui.js" defer></script>
     </head>
 
     <body>
         <a class="skip-link" href="#main">Skip to content</a>
         <header class="sign-band">
             <div class="container band-inner">
-                <a class="brand" href="index.php">
+                <a class="brand" href="<?= e($root) ?>index.php">
                     <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         stroke-width="2" stroke-linecap="round" aria-hidden="true">
                         <circle cx="10.5" cy="10.5" r="7" />
@@ -87,10 +91,19 @@ function render_header(string $title, string $active = '', array $meta = []): vo
                     </svg>
                     RepoScope
                 </a>
-                <nav aria-label="Main">
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+                    Menu
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" aria-hidden="true">
+                        <path class="bar-top" d="M4 7h16" />
+                        <path class="bar-mid" d="M4 12h16" />
+                        <path class="bar-bot" d="M4 17h16" />
+                    </svg>
+                </button>
+                <nav id="site-nav" aria-label="Main">
                     <ul class="nav">
                         <?php foreach ($nav as $key => [$href, $label]): ?>
-                            <li><a href="<?= e($href) ?>" <?= $key === $active ? ' aria-current="page"' : '' ?>><?= e($label) ?></a></li>
+                            <li><a href="<?= e($root . $href) ?>" <?= $key === $active ? ' aria-current="page"' : '' ?>><?= e($label) ?></a></li>
                         <?php endforeach; ?>
                     </ul>
                 </nav>
@@ -212,10 +225,29 @@ function render_header(string $title, string $active = '', array $meta = []): vo
         <?php
     }
 
+    // $kind is 'error' or 'success'. $html must already be escaped (it may hold links).
+    function alert_html(string $kind, string $html, string $id = ''): string
+    {
+        $icon = $kind === 'success'
+            ? '<circle cx="10" cy="10" r="8" /><path d="M6.5 10.5l2.5 2.5 4.5-5" />'
+            : '<circle cx="10" cy="10" r="8" /><path d="M10 6v5M10 14h.01" />';
+        return '<div class="alert alert-' . e($kind) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '')
+            . ' role="' . ($kind === 'success' ? 'status' : 'alert') . '">'
+            . '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">'
+            . $icon . '</svg><p>' . $html . '</p></div>';
+    }
+
     // aria-label tells screen readers which table each "Export CSV" link is for
     function export_link(string $query, string $what): string
     {
         return '<a class="export" href="export.php?' . e($query) . '" aria-label="Export CSV, ' . e($what) . '">Export CSV</a>';
+    }
+
+    // "2026", or "2026-2027" once the year has moved on
+    function copyright_years(): string
+    {
+        $now = (int) date('Y');
+        return $now > COPYRIGHT_FROM ? COPYRIGHT_FROM . '-' . $now : (string) COPYRIGHT_FROM;
     }
 
     function render_footer(): void
@@ -223,7 +255,13 @@ function render_header(string $title, string $active = '', array $meta = []): vo
         ?>
         </main>
         <footer class="site-footer">
-            <div class="container">RepoScope · GitHub and CSV analytics in plain PHP and HTML5 Canvas</div>
+            <div class="container footer-inner">
+                <p>&copy; <?= e(copyright_years()) ?> Divyansh Garg. GitHub and CSV analytics in plain PHP and HTML5 Canvas.</p>
+                <ul class="footer-links" aria-label="Project">
+                    <li><a href="<?= e(REPO_URL) ?>" rel="noopener">Source on GitHub</a></li>
+                    <li><a href="<?= e(REPO_URL) ?>/blob/main/LICENSE" rel="noopener">MIT License</a></li>
+                </ul>
+            </div>
         </footer>
     </body>
 

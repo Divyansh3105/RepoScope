@@ -46,6 +46,7 @@
   --plate-ink: #0b0b0b;
   --signal: #fccc0a;
   --danger: #ee352e;
+  --success: #199e70; /* same hue as line 3, 3:1 against --panel */
 
   /* chart / bullet palette, checked for colour-blind contrast against --panel */
   --chart-1: #3987e5;
@@ -322,10 +323,117 @@ canvas {
 }
 
 .site-footer {
-  padding-block: var(--space-5);
+  padding-block: var(--space-4);
   border-top: 1px solid var(--rule);
   color: var(--muted);
   font-size: var(--text-xs);
+}
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-5);
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--ink-2);
+}
+.footer-links a:hover {
+  color: var(--ink);
+}
+
+/* mobile menu: the button only shows once ui.js adds .menu-ready, so without JS the
+   links just wrap under the name */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-plate);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.16);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition-property: background-color, box-shadow, scale;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.nav-toggle:hover {
+  background: oklch(1 0 0 / 0.06);
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.3);
+}
+.nav-toggle:active {
+  scale: 0.96;
+}
+.nav-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+.nav-toggle path {
+  transform-origin: center;
+  transform-box: fill-box;
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    opacity var(--duration-quick) ease-out;
+}
+.is-open .nav-toggle .bar-top {
+  transform: translateY(5px) rotate(45deg);
+}
+.is-open .nav-toggle .bar-bot {
+  transform: translateY(-5px) rotate(-45deg);
+}
+.is-open .nav-toggle .bar-mid {
+  opacity: 0;
+}
+@media (max-width: 639px) {
+  .menu-ready .nav-toggle {
+    display: inline-flex;
+  }
+  .menu-ready .band-inner {
+    row-gap: 0;
+  }
+  /* the row grows from 0fr to 1fr; links stay unfocusable while it is closed */
+  .menu-ready nav {
+    display: grid;
+    grid-template-rows: 0fr;
+    flex-basis: 100%;
+    visibility: hidden;
+    transition:
+      grid-template-rows var(--duration-fast) var(--ease-smooth-out),
+      margin-top var(--duration-fast) var(--ease-smooth-out),
+      visibility 0s linear var(--duration-fast);
+  }
+  .menu-ready.is-open nav {
+    grid-template-rows: 1fr;
+    margin-top: var(--space-2);
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .menu-ready .nav {
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .menu-ready .nav a {
+    display: flex;
+    min-height: 44px;
+  }
 }
 
 /* panels, sections, small text */
@@ -672,6 +780,13 @@ input[aria-invalid="true"] {
   margin-top: 2px;
   color: var(--danger);
 }
+.alert-success {
+  background: color-mix(in oklch, var(--success) 12%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--success) 45%, transparent);
+}
+.alert-success svg {
+  color: var(--success);
+}
 
 /* home */
 .intro {
@@ -765,8 +880,14 @@ input[aria-invalid="true"] {
 
 .home-hero {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* min-content of the form would otherwise push past 320px */
   gap: var(--space-6);
   align-items: center;
+}
+@media (max-width: 400px) {
+  .intro h1 {
+    font-size: var(--text-3xl);
+  }
 }
 @media (min-width: 1000px) {
   .home-hero {
@@ -1248,9 +1369,22 @@ tbody tr:last-child td {
   margin-top: var(--space-2);
 }
 
+.not-found {
+  max-width: 640px;
+}
+.not-found p {
+  margin-top: var(--space-3);
+}
+.not-found .chips {
+  margin-top: var(--space-5);
+}
+
 /* reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
+  .nav-toggle,
+  .nav-toggle path,
+  .menu-ready nav,
   .chart-tooltip,
   .t-text-swap,
   .chevron,
