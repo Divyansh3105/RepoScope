@@ -7,30 +7,40 @@ require __DIR__ . '/../includes/bootstrap.php';
 // ?user[]=x would give an array, so only accept a string. Drop a leading @.
 $username = is_string($_GET['user'] ?? null) ? ltrim(trim($_GET['user']), '@') : '';
 
+// GitHub can take seconds, so release the session lock first and reopen it to save the result
+$state = github_state();
+session_write_close();
+
 $error = '';
 $fieldError = false; // mark the input as invalid
 $result = null;
+$fetched = false;
 if ($username !== '') {
     if (!is_valid_username($username)) {
         $error = "That isn't a valid GitHub username. Usernames are up to 39 letters, digits "
             . "and single hyphens, and can't start or end with a hyphen.";
         $fieldError = true;
     } else {
-        $result = github_fetch_user($username);
+        $result = github_fetch_user($username, $state);
+        $fetched = true;
         if (isset($result['error'])) {
             $error = $result['error'];
             $fieldError = ($result['status'] ?? 0) === 404;
             $result = null;
-        } else {
-            // last 5 lookups for the home page
-            $recent = array_merge([$result['profile']['login']], $_SESSION['recent'] ?? []);
-            $_SESSION['recent'] = array_slice(array_values(array_unique($recent)), 0, 5);
         }
     }
 }
-$rate = $_SESSION['github_rate'] ?? null;
 
-session_write_close();
+if ($fetched) {
+    github_state_save($state);
+    if ($result !== null) {
+        // last 5 lookups for the home page
+        $recent = array_merge([$result['profile']['login']], $_SESSION['recent'] ?? []);
+        $_SESSION['recent'] = array_slice(array_values(array_unique($recent)), 0, 5);
+    }
+    session_write_close();
+}
+$rate = $state['rate'];
 
 // only set when a profile loaded; declared here so the template's uses are all defined
 $languages = $topStars = $timeline = $table = $col = $facts = $languageCell = null;

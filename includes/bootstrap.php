@@ -36,16 +36,22 @@ header('Referrer-Policy: same-origin');
 
 // Render terminates HTTPS at its proxy and forwards plain HTTP with X-Forwarded-Proto.
 // Spoofing that header could only turn the Secure flag on, so it's safe to trust here.
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-    || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+// A function so pages can close the session during slow GitHub calls and reopen it to save.
+function start_session(): void
+{
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
 
-session_start([
-    'name'            => 'reposcope',
-    'cookie_httponly' => true,
-    'cookie_samesite' => 'Lax',
-    'cookie_secure'   => $isHttps,
-    'use_strict_mode' => true, // reject session ids we didn't issue (fixation)
-]);
+    session_start([
+        'name'            => 'reposcope',
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Lax',
+        'cookie_secure'   => $isHttps,
+        'use_strict_mode' => true, // reject session ids we didn't issue (fixation)
+    ]);
+}
+
+start_session();
 
 // new session: fresh id + CSRF token
 if (!isset($_SESSION['csrf_token'])) {

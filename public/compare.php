@@ -28,17 +28,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '') {
+        // up to 15 users can take minutes: release the session lock while talking to GitHub
+        $state = github_state();
+        session_write_close();
+
         // a failed user doesn't stop the rest; cached users cost no requests
         $entries = [];
         $failed = [];
         foreach ($names['users'] as $username) {
-            $result = github_fetch_user($username);
+            $result = github_fetch_user($username, $state);
             if (isset($result['error'])) {
                 $failed[] = [$username, $result['error']];
             } else {
                 $entries[] = $result;
             }
         }
+        github_state_save($state);
 
         $notes = $parsed['notes'];
         if ($names['total'] > COMPARE_MAX_USERS) {

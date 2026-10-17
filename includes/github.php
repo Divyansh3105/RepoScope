@@ -8,11 +8,11 @@ declare(strict_types=1);
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UNREADABLE = 'GitHub sent a response RepoScope could not read. Please try again.';
 
+// $rate is the last X-RateLimit reading (null if none yet), updated from each response.
 // Returns ['data' => decoded json] or ['error' => message, 'status' => http code].
-function github_get(string $path): array
+function github_get(string $path, ?array &$rate): array
 {
     // out of requests until the reset? fail now instead of waiting for GitHub to say no
-    $rate = $_SESSION['github_rate'] ?? null;
     if ($rate !== null && $rate['remaining'] === 0 && $rate['reset'] > time()) {
         $headers = ['x-ratelimit-remaining' => '0', 'x-ratelimit-reset' => (string) $rate['reset']];
         return ['error' => github_error_message(403, $headers, time()), 'status' => 403];
@@ -38,7 +38,7 @@ function github_get(string $path): array
     $response = parse_http_headers(http_get_last_response_headers() ?? []);
 
     if (isset($response['headers']['x-ratelimit-remaining'])) {
-        $_SESSION['github_rate'] = [
+        $rate = [
             'remaining' => (int) $response['headers']['x-ratelimit-remaining'],
             'limit'     => (int) ($response['headers']['x-ratelimit-limit'] ?? 0),
             'reset'     => (int) ($response['headers']['x-ratelimit-reset'] ?? 0),
@@ -157,19 +157,46 @@ function repos_table(array $repos): array
     return ['headers' => ['Repository', 'Language', 'Stars', 'Forks', 'Created'], 'rows' => $rows];
 }
 
-// Profile + repos for one user, from the session cache if fresh. Needs the session open.
+// The session data github_fetch_user() works on. Pages copy it out, close the session so
+// slow GitHub calls don't block their other tabs, then hand it to github_state_save().
+// 'new' collects the entries fetched during this request.
+function github_state(): array
+{
+    return [
+        'cache' => $_SESSION['github_cache'] ?? [],
+        'rate'  => $_SESSION['github_rate'] ?? null,
+        'new'   => [],
+    ];
+}
+
+// Reopens the session and stores what this request fetched. Only the new entries are merged
+// in, so a lookup another tab saved in the meantime isn't overwritten. The session stays open.
+function github_state_save(array $state): void
+{
+    start_session();
+    $cache = $_SESSION['github_cache'] ?? [];
+    foreach ($state['new'] as $key => $entry) {
+        $cache = cache_put($cache, $key, $entry['data'], $entry['time']);
+    }
+    $_SESSION['github_cache'] = $cache;
+    if ($state['rate'] !== null) {
+        $_SESSION['github_rate'] = $state['rate'];
+    }
+}
+
+// Profile + repos for one user, from $state's cache if fresh (see github_state()).
 // Returns ['profile', 'repos', 'fetched', 'cached'] or ['error' => message].
-function github_fetch_user(string $username): array
+function github_fetch_user(string $username, array &$state): array
 {
     $key = 'user:' . strtolower($username); // prefix keeps numeric names from becoming int keys
     $now = time();
-    $cached = cache_get($_SESSION['github_cache'] ?? [], $key, $now);
+    $cached = cache_get($state['cache'], $key, $now);
     if ($cached !== null) {
         return $cached + ['cached' => true];
     }
 
     $path = '/users/' . rawurlencode($username);
-    $user = github_get($path);
+    $user = github_get($path, $state['rate']);
     if (isset($user['error'])) {
         return $user;
     }
@@ -182,7 +209,7 @@ function github_fetch_user(string $username): array
     $repos = [];
     $pages = min(GITHUB_MAX_PAGES, (int) ceil($profile['repos'] / 100));
     for ($page = 1; $page <= $pages; $page++) {
-        $result = github_get("{$path}/repos?per_page=100&sort=updated&page={$page}");
+        $result = github_get("{$path}/repos?per_page=100&sort=updated&page={$page}", $state['rate']);
         if (isset($result['error'])) {
             return $result;
         }
@@ -196,7 +223,8 @@ function github_fetch_user(string $username): array
     }
 
     $entry = ['profile' => $profile, 'repos' => $repos, 'fetched' => $now];
-    $_SESSION['github_cache'] = cache_put($_SESSION['github_cache'] ?? [], $key, $entry, $now);
+    $state['cache'] = cache_put($state['cache'], $key, $entry, $now);
+    $state['new'][$key] = ['time' => $now, 'data' => $entry];
     return $entry + ['cached' => false];
 }
 
