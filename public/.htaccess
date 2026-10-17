@@ -1,0 +1,4 @@
+# Apache: only used when public/ is the document root (the Docker image does that).
+# The built-in server uses router.php instead.
+DirectoryIndex index.php
+ErrorDocument 404 /404.php
