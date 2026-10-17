@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../config/config.php';
 require __DIR__ . '/../includes/helpers.php';
+require __DIR__ . '/../includes/layout.php';
 require __DIR__ . '/../includes/github.php';
 require __DIR__ . '/../includes/stats.php';
 require __DIR__ . '/../includes/csv.php';
@@ -75,5 +76,11 @@ check(
 );
 check('not found', str_starts_with(github_error_message(404, [], $now), 'GitHub user not found'), true);
 check('headers parsed', parse_http_headers(['HTTP/1.1 200 OK', 'X-RateLimit-Remaining: 7'])['headers']['x-ratelimit-remaining'], '7');
+
+// page furniture
+check('copyright starts in ' . COPYRIGHT_FROM, str_starts_with(copyright_years(), (string) COPYRIGHT_FROM), true);
+check('error alert is announced', str_contains(alert_html('error', 'x'), 'role="alert"'), true);
+check('success alert is a status', str_contains(alert_html('success', 'x'), 'role="status"'), true);
+check('alert id is escaped', str_contains(alert_html('error', 'x', 'a"b'), 'id="a&quot;b"'), true);
 
 echo "{$checks} checks passed\n";

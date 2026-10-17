@@ -42,6 +42,8 @@ Other details:
 - **API quota handling:** GitHub results are cached in the session for 10 minutes. The remaining quota is shown on the Profile and Compare pages, and once the hourly limit is used up the app stops sending requests until it resets.
 - **Partial Compare results:** a user who cannot be loaded is listed with the reason, and the rest of the group still loads.
 - **No JavaScript required for forms:** every form submits normally, and every chart has an HTML table with the same data.
+- **Phone friendly:** no horizontal scrolling down to 320 px wide, and a collapsible menu on small screens (without JavaScript the links simply wrap under the name).
+- **Clear feedback:** a success message after each upload, errors that name the problem and the fix, a custom 404 page, and a fallback message if a chart cannot be drawn.
 
 ## Screenshots
 
@@ -54,7 +56,7 @@ Other details:
 With Docker (no local PHP needed), run this from the project folder:
 
 ```bash
-docker run --rm -p 8000:8000 -v "$(pwd):/app" -w /app php:8.5-cli php -S 0.0.0.0:8000 -t public
+docker run --rm -p 8000:8000 -v "$(pwd):/app" -w /app php:8.5-cli php -S 0.0.0.0:8000 -t public public/router.php
 ```
 
 In Windows PowerShell, use `${PWD}` instead of `$(pwd)`.
@@ -62,10 +64,10 @@ In Windows PowerShell, use `${PWD}` instead of `$(pwd)`.
 With a local PHP 8.5 (the `openssl`, `mbstring` and `fileinfo` extensions must be enabled):
 
 ```bash
-php -S localhost:8000 -t public
+php -S localhost:8000 -t public public/router.php
 ```
 
-Then open <http://localhost:8000>. The `-t public` flag makes `public/` the web root, so `includes/` and `config/` cannot be reached from the browser.
+Then open <http://localhost:8000>. The `-t public` flag makes `public/` the web root, so `includes/` and `config/` cannot be reached from the browser. `router.php` serves real files as they are and shows the custom 404 page for every other address (on Apache, `public/.htaccess` does the same when `public/` is the document root).
 
 The sample files in [`public/samples/`](public/samples) let you try the app without your own data: `sales.csv` for Analyze and `developers.csv` for Compare.
 
@@ -159,6 +161,9 @@ RepoScope/
 │   ├── compare.php          Compare mode
 │   ├── analyze.php          Analyze mode
 │   ├── export.php           CSV download of any result table
+│   ├── 404.php              custom "page not found" page
+│   ├── router.php           dev server entry point: real files, else the 404 page
+│   ├── .htaccess            the same 404 handling on Apache
 │   ├── samples/             sample CSVs for Analyze and Compare
 │   ├── og-image.png         1200x630 preview image for link sharing
 │   ├── robots.txt           keeps crawlers away from the export endpoint
@@ -186,6 +191,7 @@ RepoScope/
 - [x] CSV parsing, statistics, Analyze mode
 - [x] Compare mode, CSV export with formula-injection protection
 - [x] Audit fixes and a regression check script
+- [x] Phone menu, custom 404 page, footer links, success and error messages, compressed images
 
 ## Tests
 
