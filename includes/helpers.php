@@ -29,6 +29,14 @@ function is_valid_username(string $username): bool
     return preg_match('/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}\z/i', $username) === 1;
 }
 
+// Render terminates HTTPS at its proxy and forwards plain HTTP with X-Forwarded-Proto.
+// Spoofing that header could only turn on the Secure flag and HSTS, so it's safe to trust.
+function is_https(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+}
+
 // Only allow http(s) links, so a "javascript:" URL from GitHub can't end up in an href.
 function safe_url(string $url): string
 {

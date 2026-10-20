@@ -35,20 +35,19 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' https://avat
     . "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
+// only over HTTPS: browsers ignore it on HTTP, and localhost must stay reachable without TLS
+if (is_https()) {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
-// Render terminates HTTPS at its proxy and forwards plain HTTP with X-Forwarded-Proto.
-// Spoofing that header could only turn the Secure flag on, so it's safe to trust here.
 // A function so pages can close the session during slow GitHub calls and reopen it to save.
 function start_session(): void
 {
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-
     session_start([
         'name'            => 'reposcope',
         'cookie_httponly' => true,
         'cookie_samesite' => 'Lax',
-        'cookie_secure'   => $isHttps,
+        'cookie_secure'   => is_https(),
         'use_strict_mode' => true, // reject session ids we didn't issue (fixation)
     ]);
 }

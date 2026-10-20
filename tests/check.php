@@ -37,6 +37,12 @@ check('double hyphen', is_valid_username('octo--cat'), false);
 check('trailing newline', is_valid_username("octocat\n"), false);
 check('40 characters', is_valid_username(str_repeat('a', 40)), false);
 
+// HTTPS detection, directly or behind Render's proxy
+check('plain http', is_https(), false);
+$_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+check('proxied https', is_https(), true);
+unset($_SERVER['HTTP_X_FORWARDED_PROTO']);
+
 // CSV parsing
 check('header with years stays a header', csv_parse("name,2023\nA,1\n")['table']['headers'], ['name', '2023']);
 check('all-number first row is data', csv_parse("1,2\n3,4\n")['table']['headers'], ['Column 1', 'Column 2']);

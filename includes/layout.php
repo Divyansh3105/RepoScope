@@ -12,9 +12,7 @@ function site_url(string $path = '/'): string
     if (!preg_match('/^[A-Za-z0-9.-]+(:\d{1,5})?$/', $host)) {
         $host = 'localhost';
     }
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
-    return ($https ? 'https://' : 'http://') . $host . $path;
+    return (is_https() ? 'https://' : 'http://') . $host . $path;
 }
 
 // $meta keys: description (string), query (canonical query string), noindex (bool)
