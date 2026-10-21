@@ -1,0 +1,12 @@
+# The token must come from the host's environment, never be baked into the image.
+config/config.local.php
+
+.git/
+.github/
+.claude/
+.impeccable/
+.playwright-mcp/
+DESIGN.md
+PRODUCT.md
+docs/
+tests/
