@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint and run the checks on PHP 8.5
+        run: |
+          docker run --rm -v "$PWD:/app" -w /app php:8.5-cli sh -c '
+            for f in $(find . -name "*.php" -not -path "./.git/*"); do php -l "$f" > /dev/null || exit 1; done
+            php tests/check.php'
+
+      - name: Build the image and check it serves pages
+        run: |
+          docker build -t reposcope .
+          docker run -d --name app -p 8080:80 reposcope
+          sleep 3
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/analyze.php)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/no-such-page)" = 404
+          test "$(curl -s --path-as-is -o /dev/null -w '%{http_code}' http://localhost:8080/../config/config.php)" = 404
