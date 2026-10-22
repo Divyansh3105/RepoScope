@@ -20,8 +20,14 @@ jobs:
         run: |
           docker build -t reposcope .
           docker run -d --name app -p 8080:80 reposcope
-          sleep 3
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/)" = 200
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/analyze.php)" = 200
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/no-such-page)" = 404
-          test "$(curl -s --path-as-is -o /dev/null -w '%{http_code}' http://localhost:8080/../config/config.php)" = 404
+          # wait for Apache to accept connections
+          curl -s -o /dev/null --retry 15 --retry-delay 1 --retry-all-errors http://localhost:8080/
+          expect() {
+            code=$(curl -s --path-as-is -o /dev/null -w '%{http_code}' "http://localhost:8080$1")
+            echo "$1 -> $code (want $2)"
+            [ "$code" = "$2" ]
+          }
+          # Apache refuses "../" paths outright with 400
+          expect / 200 && expect /analyze.php 200 && expect /no-such-page 404 \
+            && expect /config/config.php 404 && expect /../config/config.php 400 \
+            || { docker logs app; exit 1; }
