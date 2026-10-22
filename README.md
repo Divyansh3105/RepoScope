@@ -2,6 +2,7 @@
 
 RepoScope turns GitHub profiles and CSV files into statistics and interactive charts. It is written in plain PHP 8.5 with a canvas chart library built from scratch: no framework, no database and no build step.
 
+[![CI](https://github.com/Divyansh3105/RepoScope/actions/workflows/ci.yml/badge.svg)](https://github.com/Divyansh3105/RepoScope/actions/workflows/ci.yml)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![Database: none](https://img.shields.io/badge/database-none-lightgrey)
@@ -22,6 +23,7 @@ RepoScope turns GitHub profiles and CSV files into statistics and interactive ch
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
 - [Tests](#tests)
+- [Deployment](#deployment)
 - [Troubleshooting](#troubleshooting)
 - [What I learned](#what-i-learned)
 - [Credits and license](#credits-and-license)
@@ -127,13 +129,13 @@ Uploads use Post/Redirect/Get, so refreshing a result page never re-sends the fi
 | Cross-site scripting | All output goes through `e()` (`htmlspecialchars` with `ENT_QUOTES \| ENT_SUBSTITUTE`). A Content Security Policy blocks inline scripts as a second layer. Chart data is encoded with the `JSON_HEX_*` flags so it cannot close its `<script>` tag. |
 | Malicious links | URLs from GitHub (avatars, websites) are used only when they start with `http://` or `https://`, so a `javascript:` link is rejected. |
 | CSRF | Every POST form carries a 64-character random token, checked with `hash_equals()`. Cookies are `SameSite=Lax`. |
-| Session hijacking and fixation | `HttpOnly` and `Secure` cookies (also behind a proxy, through `X-Forwarded-Proto`), strict session mode, and a fresh session ID for every new session. |
+| Session hijacking and fixation | `HttpOnly` and `Secure` cookies (also behind a proxy, through `X-Forwarded-Proto`), strict session mode, and a fresh session ID for every new session. Over HTTPS, `Strict-Transport-Security` keeps browsers from falling back to HTTP. |
 | Clickjacking and content sniffing | `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`. |
 | Hostile uploads | The upload error code, `is_uploaded_file()`, the `.csv` extension, a 2 MB limit and the real MIME type through `fileinfo` are all checked. Files are read from PHP's temp folder and never stored. Parsing stops at 5,000 rows and 50 columns. |
 | CSV formula injection | Exported cells starting with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'`, so spreadsheets show them as text. Real numbers are left alone. |
 | Path tricks in exports | `export.php` serves only tables already stored in the visitor's session, chosen from a fixed list. The download name is built from safe characters only. |
 | Token leaks | The GitHub token comes from the environment or a git-ignored file and is sent only to GitHub. It never reaches the browser. |
-| Information leaks | Errors are logged, never displayed. Uncaught exceptions show a generic error page. |
+| Information leaks | Errors are logged, never displayed. Uncaught exceptions show a generic error page. The Docker image hides the PHP and Apache version numbers. |
 
 ## Configuration
 
@@ -181,7 +183,10 @@ RepoScope/
 │   └── stats.php            statistics and chart-data builders
 ├── config/config.php        limits and the optional token
 ├── tests/check.php          regression checks, run with php tests/check.php
-└── docs/screenshots/        images used in this README
+├── docs/screenshots/        images used in this README
+├── Dockerfile               production image: Apache + PHP 8.5, web root public/
+├── .dockerignore            keeps the token file, tests and docs out of the image
+└── .github/workflows/ci.yml lint, checks and an image smoke test on every push
 ```
 
 ## Roadmap
@@ -192,6 +197,7 @@ RepoScope/
 - [x] Compare mode, CSV export with formula-injection protection
 - [x] Audit fixes and a regression check script
 - [x] Phone menu, custom 404 page, footer links, success and error messages, compressed images
+- [x] Production Docker image, CI and deployment to Render
 
 ## Tests
 
@@ -200,6 +206,35 @@ RepoScope/
 ```bash
 php tests/check.php
 ```
+
+On every push, [GitHub Actions](.github/workflows/ci.yml) lints every PHP file and runs these checks on PHP 8.5. It then builds the Docker image and checks that it serves pages, answers unknown addresses with 404 and keeps `config/` out of reach.
+
+## Deployment
+
+The [`Dockerfile`](Dockerfile) builds the production image: Apache with PHP 8.5, the production `php.ini`, and `public/` as the web root. To run it locally:
+
+```bash
+docker build -t reposcope .
+```
+
+```bash
+docker run --rm -p 8080:80 -e GITHUB_TOKEN=your-token reposcope
+```
+
+Then open <http://localhost:8080>.
+
+### Render
+
+RepoScope runs on [Render](https://render.com)'s free plan:
+
+1. In the Render dashboard, choose **New > Web Service** and connect this GitHub repository. Render finds the `Dockerfile` and picks **Docker** as the language.
+2. Pick the **Free** instance type and the region closest to your visitors.
+3. Under **Environment Variables**, add `GITHUB_TOKEN` with a fine-grained token (see [GitHub token](#github-token-optional)). Without it, every visitor shares the server's 60 GitHub requests per hour.
+4. Choose **Deploy Web Service**. Every later push to `main` redeploys automatically.
+
+Render sends traffic to the port in `$PORT` (10000 by default), and the image tells Apache to listen there. HTTPS ends at Render's proxy, which passes `X-Forwarded-Proto` on, so cookies stay `Secure`.
+
+Free services sleep after 15 minutes without traffic, so the first visit after a break takes up to a minute. Sessions are stored on the instance, so a redeploy or restart clears saved results.
 
 ## Troubleshooting
 
@@ -212,6 +247,7 @@ php tests/check.php
 - PHP holds the session lock for the whole request, so calling `session_write_close()` early keeps other tabs responsive.
 - Security works in layers: escaping and a CSP, CSRF tokens and `SameSite` cookies.
 - Behind a reverse proxy such as Render, PHP only sees HTTP. The original scheme arrives in `X-Forwarded-Proto`.
+- Hosts choose the port at runtime through `$PORT`, and Apache can read it in its own config as `${PORT}`.
 - A canvas has to be scaled by `devicePixelRatio`, and tooltips need their own hit-testing.
 - File extensions prove nothing: `fileinfo` checks the bytes, and `is_uploaded_file()` proves the upload is real.
 - When a request exceeds `post_max_size`, PHP silently empties `$_POST` and `$_FILES`.
