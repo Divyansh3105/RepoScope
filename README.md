@@ -10,7 +10,9 @@ RepoScope turns GitHub profiles and CSV files into statistics and interactive ch
 
 ![RepoScope profile page for Divyansh3105 showing a language donut, most-starred repositories and profile figures](docs/screenshots/profile.png)
 
-**Status:** all four modes are complete (see the [roadmap](#roadmap)).
+**Live demo:** <https://reposcope-k4kb.onrender.com> (on Render's free plan, so the first visit after a quiet spell can take up to a minute to wake the server).
+
+**Status:** all four modes are complete and deployed (see the [roadmap](#roadmap)).
 
 ## Contents
 
